@@ -90,6 +90,7 @@ BKIND_IND   = "inversion_depth"
 BKIND_ICON  = "ice_concentration"
 BKIND_NDVI  = "ndvi"
 BKIND_TPW   = "total_precipitable_water"
+BKIND_IFR   = "ifr"
 
 # Band Identifier
 BID_01 = "01"

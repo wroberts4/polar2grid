@@ -42,6 +42,8 @@ Documentation: http://www.ssec.wisc.edu/software/polar2grid/
 """
 __docformat__ = "restructuredtext en"
 
-from .modis_to_swath  import Frontend
-from .modis_guidebook import GEO_FILE_GROUPING,parse_datetime_from_filename
+from .modis_to_swath   import Frontend
+from .modis_guidebook  import GEO_FILE_GROUPING, parse_datetime_from_filename
+from .geocat_to_swath  import Frontend as Geo_Frontend
+from .geocat_guidebook import FILE_CONTENTS_GUIDE
 
