@@ -63,9 +63,13 @@ NOT_APPLICABLE = None
 DEFAULT_FILL_VALUE = -999.0
 
 # Satellites
-SAT_NPP   = "npp"
-SAT_TERRA = "terra"
-SAT_AQUA  = "aqua"
+SAT_NPP    = "npp"
+SAT_TERRA  = "terra"
+SAT_AQUA   = "aqua"
+SAT_GOES13 = "goes13"
+SAT_GOES15 = "goes15"
+SAT_METEO9 = "meteosat9"
+SAT_MTSAT2 = "mtsat2"
 
 # Instruments
 INST_VIIRS = "viirs"
@@ -91,6 +95,19 @@ BKIND_ICON  = "ice_concentration"
 BKIND_NDVI  = "ndvi"
 BKIND_TPW   = "total_precipitable_water"
 BKIND_IFR   = "ifr"
+BKIND_LIFR  = "lifr"
+BKIND_MVFR  = "mvfr"
+BKIND_CLDT  = "cloud_thickness"
+BKIND_CLDP  = "cloud_phase"
+BKIND_ASHH  = "ash_height"
+BKIND_ASHM  = "ash_mass_loading"
+BKIND_ASHE  = "ash_effective_radius"
+BKIND_ASHB  = "ash_btd_11_12"
+BKIND_ASH11 = "ash_11"
+BKIND_SO2L  = "so2_loading"
+BKIND_SO2M  = "so2_mask"
+BKIND_ASHV  = "ash_visible"
+
 
 # Band Identifier
 BID_01 = "01"
@@ -128,6 +145,7 @@ DKIND_ANGLE       = "angle"
 DKIND_DISTANCE    = "distance" # this is meant to be a distance in the sense of mm, cm, meters, km, or miles
 DKIND_PERCENT     = "percent"
 DKIND_C_INDEX     = "contiguous_index" # this represents some abstract ranging index with meaningfully contiguous values (not discrete categories)
+DKIND_M_LOAD      = "mass_loading" # this represents an amount (mass usually) over an area
 
 SET_DKINDS = set([
     DKIND_RADIANCE,

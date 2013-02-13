@@ -256,11 +256,11 @@ def run_geocat2awips(filepaths,
                 temp_processes.start()
                 processes_to_wait_for.append(temp_processes)
             else:
-                stat = _process_data_sets([filepath], filename **kwargs)
+                stat = _process_data_sets([filepath], filename, **kwargs)
                 exit_status = exit_status or stat
         except StandardError:
-            log.error("Could not process file %s" % filepath)
-            exit_status = exit_status or len(1) # TODO, not right
+            log.error("Could not process file %s" % filepath, exc_info=True)
+            exit_status = exit_status or 1 # TODO, not right
     
     log.debug("Waiting for subprocesses")
     # look through our processes and wait for any processes we saved to wait for

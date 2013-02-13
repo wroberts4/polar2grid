@@ -93,15 +93,18 @@ def _load_meta_data (file_objects) :
         raise ValueError("One file was expected for processing in _load_meta_data_and_image_data and more were given.")
     file_object = file_objects[0]
     
+    # based on the file name, figure out which satellite and instrument we have
+    temp_sat, temp_inst = geocat_guidebook.get_satellite_from_filename(file_object.file_name)
+    
     # set up the base dictionaries
     meta_data = {
-                 "sat": geocat_guidebook.get_satellite_from_filename(file_object.file_name),
-                 "instrument": INST_MODIS, # TODO, this is not a given, once more are wired in this will need to be properly selected
+                 "sat": temp_sat,
+                 "instrument": temp_inst,
                  "start_time": geocat_guidebook.parse_datetime_from_filename(file_object.file_name),
                  "bands" : { },
                  "rows_per_scan": geocat_guidebook.MODIS_ROWS_PER_SCAN, # TODO, not general?
                  
-                 # TO FILL IN LATER
+                 # these will be filled in later in the process
                  "lon_fill_value": None,
                  "lat_fill_value": None,
                  "fbf_lat":        None,
@@ -228,7 +231,7 @@ def _load_data_to_flat_file (file_objects, descriptive_string, variable_name,
         if missing_attribute_name is not None :
             #print ("attributes: " + str(temp_var_object.attributes()))
             
-            temp_fill_value = temp_var_object.attributes()[missing_attribute_name]
+            temp_fill_value = temp_var_object.attributes().get(missing_attribute_name, fill_value_default)
         else :
             temp_fill_value = fill_value_default
         # if we already have a fill value and it's not the same as the one we just loaded, fix our data
@@ -241,15 +244,15 @@ def _load_data_to_flat_file (file_objects, descriptive_string, variable_name,
         # if there's scaling information load it
         scale_value  = None
         if scale_name  is not None :
-            scale_value  = temp_var_object.attributes()[scale_name]
+            scale_value  = temp_var_object.attributes().get(scale_name, None)
             scale_value  = float(scale_value)  if scale_value  is not None else scale_value
         offset_value = None
         if offset_name is not None :
-            offset_value = temp_var_object.attributes()[offset_name]
+            offset_value = temp_var_object.attributes().get(offset_name, None)
             offset_value = float(offset_value) if offset_value is not None else offset_value
         scaling_method = geocat_guidebook.SCALING_METHOD_LINEAR
         if scale_method_name is not None :
-            scaling_method = temp_var_object.attributes()[scale_method_name]
+            scaling_method = temp_var_object.attributes().get(scale_method_name, None)
             scaling_method = int(scaling_method) if scaling_method is not None else scaling_method
         
         log.debug("Using scale method " + str(scaling_method) + " scale value " + str(scale_value) + " and offset value " + str(offset_value))
@@ -281,6 +284,39 @@ def _load_data_to_flat_file (file_objects, descriptive_string, variable_name,
     
     return temp_file_name, stats
 
+def _get_var_name_from_pattern (variable_pattern, file_to_search) :
+    """
+    find the variable name that matches the given pattern and return it
+    
+    # TODO, this may be a bad assumption, check example data
+    Note: It's expected that only one variable will match the given pattern.
+    If more than one variable matches, an exception will be raised.
+    """
+    
+    variables_list = sorted(file_to_search.datasets().keys())
+    
+    toReturn = None
+    
+    # look through the variables and find one that matches the pattern
+    for variable_name in variables_list :
+        # does this variable match the pattern?
+        if re.match(variable_pattern, variable_name) is not None :
+            
+            # if we already had a match, then there are multiple variables
+            # that could match our pattern, which is bad
+            if toReturn is not None :
+                message = ("Multple matches for pattern " + str (variable_pattern)
+                           + " found (" + str(toReturn) + ", " + str(variable_name)
+                           + ") unable to determine which variable to use.")
+                log.warn(message)
+                raise ValueError (message)
+            
+            # we found a match, hang on to it
+            toReturn = variable_name
+            log.debug ("Matched variable pattern " + str(variable_pattern) + " with name: " + str(variable_name))
+    
+    return toReturn
+
 def _load_image_data (meta_data_to_update, cut_bad=False) :
     """
     load image data into binary flat files based on the meta data provided
@@ -289,11 +325,19 @@ def _load_image_data (meta_data_to_update, cut_bad=False) :
     # process each of the band kind / id sets
     for band_kind, band_id in meta_data_to_update["bands"] :
         
+        file_temp     = [meta_data_to_update["bands"][(band_kind, band_id)]["file_obj"].file_object]
+        var_name_temp = _get_var_name_from_pattern (geocat_guidebook.VAR_PATTERN[(band_kind, band_id)], file_temp[0])
+        
+        # if we couldn't find a variable, log something and move on
+        if var_name_temp is None :
+            log.debug ("Could not find a variable matching pattern " + str(geocat_guidebook.VAR_PATTERN[(band_kind, band_id)]))
+            continue
+        
         # load the data into a flat file
         (scale_name, offset_name, scaling_method) = geocat_guidebook.RESCALING_ATTRS[(band_kind, band_id)]
-        temp_image_file_name, image_stats = _load_data_to_flat_file ([meta_data_to_update["bands"][(band_kind, band_id)]["file_obj"].file_object],
+        temp_image_file_name, image_stats = _load_data_to_flat_file (file_temp,
                                                                      str(band_kind) + str(band_id),
-                                                                     geocat_guidebook.VAR_NAMES[(band_kind, band_id)],
+                                                                     var_name_temp,
                                                                      missing_attribute_name=geocat_guidebook.FILL_VALUE_ATTR_NAMES[(band_kind, band_id)],
                                                                      scale_method_name=scaling_method, scale_name=scale_name, offset_name=offset_name)
         
@@ -313,6 +357,7 @@ def _load_image_data (meta_data_to_update, cut_bad=False) :
         meta_data_to_update["bands"][(band_kind, band_id)]["swath_rows"]  = rows
         meta_data_to_update["bands"][(band_kind, band_id)]["swath_cols"]  = cols
         meta_data_to_update["bands"][(band_kind, band_id)]["swath_scans"] = rows / geocat_guidebook.MODIS_ROWS_PER_SCAN
+        # TODO, the actual variable name may be needed later to discriminate some processing steps, store this at some point?
         
         if rows != meta_data_to_update["swath_rows"] or cols != meta_data_to_update["swath_cols"]:
             msg = ("Expected %d rows and %d cols, but band %s %s had %d rows and %d cols"
@@ -339,7 +384,8 @@ def get_swaths(ifilepaths, cut_bad=False, nav_uid=None):
             TODO, for now this doesn't do anything!
     """
     
-    # TODO, for now this method only handles one file, eventually it will need to handle more
+    # TODO, for now this method only handles one file, for geocat it may not ever handle more than one
+    # TODO, the interface was originally intended to allow multiple granules to be concatinated
     if len(ifilepaths) != 1 :
         raise ValueError("One file was expected for processing in get_swaths and more were given.")
     
@@ -373,9 +419,11 @@ class Frontend(roles.FrontendRole):
             
             try:
                 temp_meta_data = get_swaths([temp_filepath], **kwargs)
+                
                 temp_bands     = { } if "bands" not in meta_data else meta_data["bands"]
                 meta_data.update(temp_meta_data)
                 meta_data["bands"].update(temp_bands)
+                
             except StandardError:
                 log.error("Swath creation failed")
                 log.debug("Swath creation error:", exc_info=1)
