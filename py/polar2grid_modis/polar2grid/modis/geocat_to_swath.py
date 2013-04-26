@@ -17,7 +17,7 @@ __docformat__ = "restructuredtext en"
 import geocat_guidebook
 from polar2grid.core.constants import *
 from polar2grid.core import roles
-from .modis_to_swath import array_appender, file_appender
+from polar2grid.core.fbf import file_appender, array_appender
 
 import numpy
 from pyhdf.SD import SD,SDC, SDS, HDF4Error
@@ -288,15 +288,13 @@ def _get_var_name_from_pattern (variable_pattern, file_to_search) :
     """
     find the variable name that matches the given pattern and return it
     
-    # TODO, this may be a bad assumption, check example data
     Note: It's expected that only one variable will match the given pattern.
     If more than one variable matches, an exception will be raised.
     """
     
     variables_list = sorted(file_to_search.datasets().keys())
-    
     toReturn = None
-    
+     
     # look through the variables and find one that matches the pattern
     for variable_name in variables_list :
         # does this variable match the pattern?
@@ -331,6 +329,7 @@ def _load_image_data (meta_data_to_update, cut_bad=False) :
         # if we couldn't find a variable, log something and move on
         if var_name_temp is None :
             log.debug ("Could not find a variable matching pattern " + str(geocat_guidebook.VAR_PATTERN[(band_kind, band_id)]))
+            
             continue
         
         # load the data into a flat file
@@ -358,6 +357,8 @@ def _load_image_data (meta_data_to_update, cut_bad=False) :
         meta_data_to_update["bands"][(band_kind, band_id)]["swath_cols"]  = cols
         meta_data_to_update["bands"][(band_kind, band_id)]["swath_scans"] = rows / geocat_guidebook.MODIS_ROWS_PER_SCAN
         # TODO, the actual variable name may be needed later to discriminate some processing steps, store this at some point?
+        
+        log.debug (str((band_kind, band_id)) + " has fill value: " + str(meta_data_to_update["bands"][(band_kind, band_id)]["fill_value"]))
         
         if rows != meta_data_to_update["swath_rows"] or cols != meta_data_to_update["swath_cols"]:
             msg = ("Expected %d rows and %d cols, but band %s %s had %d rows and %d cols"
@@ -408,27 +409,55 @@ def get_swaths(ifilepaths, cut_bad=False, nav_uid=None):
     return meta_data
 
 class Frontend(roles.FrontendRole):
+    
+    removable_file_patterns = ["latitude*.real4.*",
+                               "longitude*.real4.*",
+                               "image*.real4.*", ]
+    
     def __init__(self):
         pass
 
-    def make_swaths(self, filepaths, **kwargs):
+    def make_swaths(self, nav_set_uid, filepaths, **kwargs):
         
         # load up all the meta data
         meta_data = { }
         for temp_filepath in filepaths :
             
             try:
-                temp_meta_data = get_swaths([temp_filepath], **kwargs)
-                
+                temp_meta_data = get_swaths([temp_filepath], nav_uid=nav_set_uid, **kwargs)
                 temp_bands     = { } if "bands" not in meta_data else meta_data["bands"]
                 meta_data.update(temp_meta_data)
                 meta_data["bands"].update(temp_bands)
-                
             except StandardError:
                 log.error("Swath creation failed")
                 log.debug("Swath creation error:", exc_info=1)
         
         return meta_data
+    
+    @classmethod
+    def sort_files_by_nav_uid(cls, filepaths):
+        """
+        sort the filepaths by which navigation they use
+        """
+        
+        raise # TODO, need to implement and use this interface correctly
+    
+    # TODO, this method has been implemented but not put into use in the rest of the code
+    @classmethod
+    def parse_datetimes_from_filepaths(cls, filepaths):
+        """
+        given a list of filepaths, return the associated datetimes
+        """
+        
+        all_datetimes = [ ]
+        
+        # figure out each datetime
+        for filepath in filepaths :
+            # Guidebook's function ignores bad files
+            datetime_temp = geocat_guidebook.parse_datetime_from_filename(os.path.split(filepath)[-1])
+            all_datetimes.append(datetime_temp) if datetime_temp is not None else log.debug("Discarding None datetime.") # TODO, fix the datetime generator so this doesn't happen
+        
+        return all_datetimes
 
 def main():
     import optparse
@@ -464,7 +493,7 @@ def main():
         return 9
 
     import json
-    meta_data = make_swaths(args[:])
+    meta_data = make_swaths("test", args[:])
     print json.dumps(meta_data)
     return 0
 

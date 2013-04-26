@@ -85,8 +85,11 @@ FILE_CONTENTS_GUIDE = {
                                                                     BKIND_ASH11: [NOT_APPLICABLE], # has no attrs
                                                                     BKIND_ASHV:  [NOT_APPLICABLE], # has no attrs
                                                                     
-                                                                    BKIND_SO2L:  [NOT_APPLICABLE],
-                                                                    BKIND_SO2M:  [NOT_APPLICABLE],
+                                                                    # TODO, right now when these aren't present in a file it will include
+                                                                    # TODO, them in the meta data anyway and cause weird errors to appear
+                                                                    # TODO, to fix this I need to change how it handles variable loading, I think
+#                                                                    BKIND_SO2L:  [NOT_APPLICABLE],
+#                                                                    BKIND_SO2M:  [NOT_APPLICABLE],
                                                                    },
                       }
 
@@ -284,40 +287,6 @@ def main():
     logging.basicConfig(level = levels[min(3, options.verbosity)])
     
     LOG.info("Currently no command line tests are set up for this module.")
-    
-    """
-    if not args:
-        parser.error( 'must specify 1 filename, try -h or --help.' )
-        return -1
-    
-    for fn in args:
-        try:
-            finfo = generic_info(fn)
-        except:
-            LOG.error("Failed to get info from filename '%s'" % fn, exc_info=1)
-            continue
-    
-        if options.read_h5:
-            generic_read(fn, finfo)
-            pprint(finfo)
-            if finfo["data_kind"] == K_RADIANCE:
-                data_shape = str(finfo["data"].shape)
-                print "Got Radiance with shape %s" % data_shape
-            elif finfo["data_kind"] == K_REFLECTANCE:
-                data_shape = str(finfo["data"].shape)
-                print "Got Reflectance with shape %s" % data_shape
-            elif finfo["data_kind"] == K_BTEMP:
-                data_shape = str(finfo["data"].shape)
-                print "Got Brightness Temperature with shape %s" % data_shape
-            else:
-                data_shape = "Unknown data type"
-                print "Got %s" % data_shape
-            mask_shape = str(finfo["mask"].shape)
-            print "Mask was created with shape %s" % mask_shape
-        else:
-            pprint(finfo)
-    
-    """
 
 if __name__ == '__main__':
     sys.exit(main())

@@ -126,7 +126,6 @@ def bt_scale_c(img, threshold, high_max, high_mult, low_max, low_mult, fill_in=D
     img[not_fill_mask] = img[not_fill_mask] + 273.15
     
     return bt_scale (img, threshold, high_max, high_mult, low_max, low_mult, fill_in=fill_in, fill_out=fill_out)
-    
 
 # this method is intended to work on brightness temperatures in Kelvin
 def bt_scale(img, threshold, high_max, high_mult, low_max, low_mult, fill_in=DEFAULT_FILL_IN, fill_out=DEFAULT_FILL_OUT):
@@ -175,6 +174,31 @@ def bt_scale_linear(image,
     image[fill_mask] = fill_out
     
     return image
+
+def irw_scale (data, cutoff_pt,
+               high_multiplier, high_offset,
+               low_multiplier, low_offset,
+               fill_in=DEFAULT_FILL_IN, fill_out=DEFAULT_FILL_OUT) :
+    """
+    given data, handle data at or above the cutoff_pt differently than data below
+    
+    note: if you want to set all data in one of the sections to a number, pass
+    a multiplyer of 0.0 and an offset of the number to set to.
+    """
+    
+    # make some usefull masks
+    not_fill = data != fill_in
+    is_high  = (data >= cutoff_pt) & not_fill
+    is_low   = (data <  cutoff_pt) & not_fill
+    
+    # scale the data
+    data[is_high] = (data[is_high] * high_multiplier) + high_offset
+    data[is_low]  = (data[is_low]  * low_multiplier)  + low_offset
+    
+    # change the fill value
+    data[data == fill_in] == fill_out
+    
+    return data
 
 def fog_scale(img, m, b, floor, floor_val, ceil, ceil_val, fill_in=DEFAULT_FILL_IN, fill_out=DEFAULT_FILL_OUT):
     """Scale data linearly. Then clip the data to `floor` and `ceil`,
@@ -251,6 +275,7 @@ class Rescaler(roles.RescalerRole):
                 'unlinear' :  unlinear_scale,
                 'raw'      :  passive_scale,
                 'btemp'    :  bt_scale,
+                'irw'      :  irw_scale,
                 'fog'      :  fog_scale,
                 'btemp_c'  :  bt_scale_c,
                 'btemp_lin':  bt_scale_linear,

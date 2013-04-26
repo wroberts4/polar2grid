@@ -15,11 +15,12 @@ __docformat__ = "restructuredtext en"
 
 from polar2grid.core import Workspace
 from polar2grid.core.constants import *
+from polar2grid.core.glue_utils import *
+from .grids.grids import create_grid_jobs, Cartographer
 from polar2grid.modis import FILE_CONTENTS_GUIDE
 
 from polar2grid.modis import Geo_Frontend
 
-from .util_glue_functions import *
 from .remap import remap_bands
 from .awips import Backend
 
@@ -46,6 +47,7 @@ def exc_handler(exc_type, exc_value, traceback):
     logging.getLogger(__name__).error(exc_value)
     logging.getLogger('traceback').error(exc_value, exc_info=(exc_type,exc_value,traceback))
 
+# TODO this is currently being used in a slipshod manner, move to the newer p2g pattern of deleting files
 def clean_up_files():
     """Remove as many of the possible files that were created from a previous
     run of this script, including temporary files.
@@ -62,7 +64,7 @@ def clean_up_files():
                       "result*.real4.*",
                       "SSEC_AWIPS_GEOCAT*" ]
     
-    remove_products(list_to_remove)
+    remove_file_patterns(list_to_remove)
 
 def process_data_sets(filepaths,
                       nav_uid,
@@ -90,7 +92,7 @@ def process_data_sets(filepaths,
     log.info("Extracting swaths...")
     meta_data = { }
     try:
-        meta_data = frontend_object.make_swaths(filepaths, cut_bad=True, nav_uid=nav_uid)
+        meta_data = frontend_object.make_swaths(nav_uid, filepaths, cut_bad=True)
     except StandardError:
         log.error("Swath creation failed")
         log.debug("Swath creation error:", exc_info=1)
@@ -108,27 +110,35 @@ def process_data_sets(filepaths,
     band_info = meta_data["bands"]
     flatbinaryfilename_lat = meta_data["fbf_lat"]
     flatbinaryfilename_lon = meta_data["fbf_lon"]
+    lat_fill = meta_data.get("lat_fill_value", None)
+    lon_fill = meta_data.get("lon_fill_value", None)
     
     log.debug("band_info after prescaling: " + str(band_info.keys()))
     
     # Determine grids
     try:
         log.info("Determining what grids the data fits in...")
-        grid_jobs = create_grid_jobs(sat, instrument, band_info, flatbinaryfilename_lat, flatbinaryfilename_lon,
-                                     backend_object, forced_grids=forced_grid)
+        grid_jobs = create_grid_jobs(sat, instrument, nav_uid, band_info,
+                                     backend_object, Cartographer(), # TODO, this is a stopgap, ultimately will need a proper Cartographer object to reuse
+                                     fbf_lat=flatbinaryfilename_lat,
+                                     fbf_lon=flatbinaryfilename_lon,
+                                     forced_grids=forced_grid,
+                                     lon_fill_value=lon_fill,
+                                     lat_fill_value=lat_fill,)
     except StandardError:
         log.debug("Grid Determination error:", exc_info=1)
         log.error("Determining data's grids failed")
         status_to_return |= STATUS_GDETER_FAIL
         return status_to_return
     
+    
     ### Remap the data
     try:
         remapped_jobs = remap_bands(sat, instrument, nav_uid,
                 flatbinaryfilename_lon, flatbinaryfilename_lat, grid_jobs,
                 num_procs=num_procs, fornav_d=fornav_d, fornav_D=fornav_D,
-                lat_fill_value=meta_data.get("lat_fill_value", None),
-                lon_fill_value=meta_data.get("lon_fill_value", None)
+                lat_fill_value=lat_fill,
+                lon_fill_value=lon_fill,
                 )
     except StandardError:
         log.debug("Remapping Error:", exc_info=1)
@@ -155,6 +165,7 @@ def process_data_sets(filepaths,
                 backend_object.create_product(
                                             sat,
                                             instrument,
+                                            nav_uid,
                                             band_kind,
                                             band_id,
                                             band_dict["data_kind"],
@@ -250,13 +261,13 @@ def run_geocat2awips(filepaths,
         try:
             if multiprocess:
                 temp_processes = Process(target=_process_data_sets,
-                                         args = ([filepath], filename), # TODO, using the filepath as nav_uid is a mess, but works as a temp fix
+                                         args = ([filepath], "geo_nav"), # TODO, this is the wrong way to match file and nav_uid
                                          kwargs = kwargs
                                          )
                 temp_processes.start()
                 processes_to_wait_for.append(temp_processes)
             else:
-                stat = _process_data_sets([filepath], filename, **kwargs)
+                stat = _process_data_sets([filepath], "geo_nav", **kwargs) # TODO, this is the wrong way to match file and nav_uid
                 exit_status = exit_status or stat
         except StandardError:
             log.error("Could not process file %s" % filepath, exc_info=True)
@@ -321,7 +332,7 @@ def main():
     args = parser.parse_args()
 
     levels = [logging.ERROR, logging.WARN, logging.INFO, logging.DEBUG]
-    setup_logging(LOG_FN, console_level=levels[min(3, args.verbosity)])
+    setup_logging(log_filename=LOG_FN, console_level=levels[min(3, args.verbosity)])
     
     # Don't set this up until after you have setup logging
     sys.excepthook = exc_handler
