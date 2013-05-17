@@ -290,12 +290,16 @@ through strftime. Current time if no files.""")
     parser.add_argument('--debug', dest="debug_mode", default=False,
             action='store_true',
             help="Enter debug mode. Keeping intermediate files.")
+    
+    # Remapping and grid related
     parser.add_argument('--fornav-D', dest='fornav_D', default=10,
             help="Specify the -D option for fornav")
     parser.add_argument('--fornav-d', dest='fornav_d', default=1,
             help="Specify the -d option for fornav")
     parser.add_argument('--fornav-m', dest='fornav_m', default=False, action='store_true',
             help="Specify the -m option for fornav")
+    
+    # multiprocess related
     parser.add_argument('--sp', dest='single_process', default=False, action='store_true',
             help="Processing is sequential instead of one process per navigation group")
     parser.add_argument('--num-procs', dest="num_procs", default=1,

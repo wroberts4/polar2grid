@@ -95,6 +95,8 @@ def _load_meta_data (file_objects) :
     
     # based on the file name, figure out which satellite and instrument we have
     temp_sat, temp_inst = geocat_guidebook.get_satellite_from_filename(file_object.file_name)
+    # also figure out the rows per scan
+    temp_rows_per_scan  = geocat_guidebook.ROWS_PER_SCAN[(temp_sat, temp_inst)]
     
     # set up the base dictionaries
     meta_data = {
@@ -102,7 +104,7 @@ def _load_meta_data (file_objects) :
                  "instrument": temp_inst,
                  "start_time": geocat_guidebook.parse_datetime_from_filename(file_object.file_name),
                  "bands" : { },
-                 "rows_per_scan": geocat_guidebook.MODIS_ROWS_PER_SCAN, # TODO, not general?
+                 "rows_per_scan": temp_rows_per_scan,
                  
                  # these will be filled in later in the process
                  "lon_fill_value": None,
@@ -124,13 +126,13 @@ def _load_meta_data (file_objects) :
             
             data_kind_const = geocat_guidebook.DATA_KINDS[(band_kind, band_number)]
             
-            # TODO, when there are multiple files, this will algorithm will need to change
+            # TODO, when there are multiple files, this algorithm will need to change
             meta_data["bands"][(band_kind, band_number)] = {
                                                             "data_kind": data_kind_const,
                                                             "remap_data_as": data_kind_const,
                                                             "kind": band_kind,
                                                             "band": band_number,
-                                                            "rows_per_scan": geocat_guidebook.MODIS_ROWS_PER_SCAN, # TODO not a long term solution
+                                                            "rows_per_scan": temp_rows_per_scan,
                                                             
                                                             # TO FILL IN LATER
                                                             "fill_value":    None,
@@ -175,8 +177,8 @@ def _load_geonav_data (meta_data_to_update, file_info_objects, nav_uid=None, cut
     # rename the flat file to a more descriptive name
     shape_temp = lat_stats["shape"]
     suffix = '.real4.' + '.'.join(str(x) for x in reversed(shape_temp))
-    new_lat_file_name = "latitude_"  + suffix # TODO what to use? + str(nav_uid) + suffix 
-    new_lon_file_name = "longitude_" + suffix # TODO what to use? + str(nav_uid) + suffix 
+    new_lat_file_name = "latitude_"  + str(nav_uid) + "_" + suffix
+    new_lon_file_name = "longitude_" + str(nav_uid) + "_" + suffix
     os.rename(lat_temp_file_name, new_lat_file_name)
     os.rename(lon_temp_file_name, new_lon_file_name)
     
@@ -188,7 +190,7 @@ def _load_geonav_data (meta_data_to_update, file_info_objects, nav_uid=None, cut
     meta_data_to_update["fbf_lon"]        = new_lon_file_name
     meta_data_to_update["swath_rows"]     = rows
     meta_data_to_update["swath_cols"]     = cols
-    meta_data_to_update["swath_scans"]    = rows / geocat_guidebook.MODIS_ROWS_PER_SCAN # TODO, not a long term solution
+    meta_data_to_update["swath_scans"]    = rows / meta_data_to_update["rows_per_scan"]
     meta_data_to_update["nav_set_uid"]    = nav_uid
 
 def _load_data_to_flat_file (file_objects, descriptive_string, variable_name,
@@ -320,6 +322,9 @@ def _load_image_data (meta_data_to_update, cut_bad=False) :
     load image data into binary flat files based on the meta data provided
     """
     
+    # keep a list of things we need to remove from the dictionary
+    keys_to_remove = [ ]
+    
     # process each of the band kind / id sets
     for band_kind, band_id in meta_data_to_update["bands"] :
         
@@ -328,8 +333,9 @@ def _load_image_data (meta_data_to_update, cut_bad=False) :
         
         # if we couldn't find a variable, log something and move on
         if var_name_temp is None :
-            log.debug ("Could not find a variable matching pattern " + str(geocat_guidebook.VAR_PATTERN[(band_kind, band_id)]))
-            
+            log.debug ("Could not find a variable matching pattern: " + str(geocat_guidebook.VAR_PATTERN[(band_kind, band_id)]))
+            log.debug ("Skipping the associated band (" + str(band_kind) + ", " + str(band_id) + ") for this file.")
+            keys_to_remove.append((band_kind, band_id))
             continue
         
         # load the data into a flat file
@@ -355,7 +361,7 @@ def _load_image_data (meta_data_to_update, cut_bad=False) :
         meta_data_to_update["bands"][(band_kind, band_id)]["fbf_img"]     = new_img_file_name
         meta_data_to_update["bands"][(band_kind, band_id)]["swath_rows"]  = rows
         meta_data_to_update["bands"][(band_kind, band_id)]["swath_cols"]  = cols
-        meta_data_to_update["bands"][(band_kind, band_id)]["swath_scans"] = rows / geocat_guidebook.MODIS_ROWS_PER_SCAN
+        meta_data_to_update["bands"][(band_kind, band_id)]["swath_scans"] = rows / meta_data_to_update["rows_per_scan"]
         # TODO, the actual variable name may be needed later to discriminate some processing steps, store this at some point?
         
         log.debug (str((band_kind, band_id)) + " has fill value: " + str(meta_data_to_update["bands"][(band_kind, band_id)]["fill_value"]))
@@ -365,6 +371,10 @@ def _load_image_data (meta_data_to_update, cut_bad=False) :
                    % (meta_data_to_update["swath_rows"], meta_data_to_update["swath_cols"], band_kind, band_id, rows, cols))
             log.error(msg)
             raise ValueError(msg)
+    
+    # remove the bands that we couldn't process
+    for band_kind, band_id in keys_to_remove :
+        del meta_data_to_update["bands"][(band_kind, band_id)]
 
 def get_swaths(ifilepaths, cut_bad=False, nav_uid=None):
     """Takes geocat hdf files and creates flat binary files for the information

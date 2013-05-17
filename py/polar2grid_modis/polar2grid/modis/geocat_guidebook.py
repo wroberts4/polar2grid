@@ -60,13 +60,23 @@ ASH_VISIBLE_VAR_PATTERN      = r'channel_2_reflectance' # TODO, will this patter
 SO2_LOADING_VAR_PATTERN      = r'.*?_So2_Loading'
 SO2_MASK_VAR_PATTERN         = r'.*?_so2_mask'
 
-
 # this is true for the 1km data, FUTURE: when we get to other kinds, this will need to be more sophisicated
 MODIS_ROWS_PER_SCAN          = 10
 # TODO, need additional values for other cases: this should cover Aqua and Terra, but we also expect Goes-12, Goes-15, SNPP (VIIRS), Meteosat-9 (SEVIRI), and MTSAT-2
 
+# more general rows per scan dictionary
+ROWS_PER_SCAN = {
+                 (SAT_AQUA,  INST_MODIS) :      MODIS_ROWS_PER_SCAN,
+                 (SAT_TERRA, INST_MODIS) :      MODIS_ROWS_PER_SCAN,
+                 }
+
 # a regular expression that will match geocat files
 GEOCAT_FILE_PATTERN            = r'geocatL2\..*?\.\d\d\d\d\d\d\d\.\d\d\d\d\d\d\.hdf'
+
+# not sure if this will work this way in the long run
+GEO_FILE_GROUPING = {
+                      GEO_NAV_UID:      [GEOCAT_FILE_PATTERN],
+                    }
 
 # a mapping between regular expressions to match files and their band_kind and band_id contents
 FILE_CONTENTS_GUIDE = {
@@ -85,11 +95,8 @@ FILE_CONTENTS_GUIDE = {
                                                                     BKIND_ASH11: [NOT_APPLICABLE], # has no attrs
                                                                     BKIND_ASHV:  [NOT_APPLICABLE], # has no attrs
                                                                     
-                                                                    # TODO, right now when these aren't present in a file it will include
-                                                                    # TODO, them in the meta data anyway and cause weird errors to appear
-                                                                    # TODO, to fix this I need to change how it handles variable loading, I think
-#                                                                    BKIND_SO2L:  [NOT_APPLICABLE],
-#                                                                    BKIND_SO2M:  [NOT_APPLICABLE],
+                                                                    BKIND_SO2L:  [NOT_APPLICABLE], # not present in current test files
+                                                                    BKIND_SO2M:  [NOT_APPLICABLE], # not present in current test files
                                                                    },
                       }
 

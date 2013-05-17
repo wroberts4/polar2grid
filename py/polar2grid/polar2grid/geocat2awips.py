@@ -13,39 +13,27 @@ hdf4 (.hdf) files and create a properly scaled AWIPS compatible NetCDF file.
 """
 __docformat__ = "restructuredtext en"
 
-from polar2grid.core import Workspace
-from polar2grid.core.constants import *
+from polar2grid.core            import Workspace
+from polar2grid.core.constants  import *
 from polar2grid.core.glue_utils import *
-from .grids.grids import create_grid_jobs, Cartographer
-from polar2grid.modis import FILE_CONTENTS_GUIDE
-
-from polar2grid.modis import Geo_Frontend
-
-from .remap import remap_bands
-from .awips import Backend
+from polar2grid.core.time_utils import utc_now
+from .grids.grids               import create_grid_jobs, Cartographer
+from polar2grid.modis           import FILE_CONTENTS_GUIDE
+from polar2grid.modis           import Geo_Frontend
+from .awips                     import Backend
+import remap
 
 import os
 import sys
 import re
 import logging
+
 from multiprocessing import Process
-import numpy
-from glob import glob
-from collections import defaultdict
+from datetime        import datetime
 
-log = logging.getLogger(__name__)
-LOG_FN = os.environ.get("GEOCAT2AWIPS_LOG", "./geocat2awips.log")
-
-def exc_handler(exc_type, exc_value, traceback):
-    """An execption handler/hook that will only be called if an exception
-    isn't called.  This will save us from print tracebacks or unrecognizable
-    errors to the user's console.
-
-    Note, however, that this doesn't effect code in a separate process as the
-    exception never gets raised in the parent.
-    """
-    logging.getLogger(__name__).error(exc_value)
-    logging.getLogger('traceback').error(exc_value, exc_info=(exc_type,exc_value,traceback))
+log       = logging.getLogger(__name__)
+GLUE_NAME = "geocat2awips"
+LOG_FN    = os.environ.get("GEOCAT2AWIPS_LOG", None) # None interpreted in main
 
 # TODO this is currently being used in a slipshod manner, move to the newer p2g pattern of deleting files
 def clean_up_files():
@@ -69,11 +57,13 @@ def clean_up_files():
 def process_data_sets(filepaths,
                       nav_uid,
                       fornav_D=None, fornav_d=None,
+                      grid_configs=None,
+                      fornav_m=True,     #
                       forced_grid=None,
                       forced_gpd=None, forced_nc=None,
                       num_procs=1,
                       rescale_config=None,
-                      backend_config=None
+                      backend_config=None,
                       ) :
     """Process all the files provided from start to finish,
     from filename to AWIPS NC file.
@@ -81,10 +71,15 @@ def process_data_sets(filepaths,
     Note: all files provided are expected to share a navigation source.
     """
     
+    log.debug("Processing %s navigation set" % (nav_uid,))
     status_to_return = STATUS_SUCCESS
+    
+    # Handle parameters
+    grid_configs = grid_configs or tuple() # needs to be a tuple for use
     
     # create the front and backend objects
     # these calls should load any configuration files needed
+    cartographer    = Cartographer(*grid_configs)
     frontend_object = Geo_Frontend()
     backend_object  = Backend(rescale_config=rescale_config, backend_config=backend_config)
     
@@ -119,7 +114,7 @@ def process_data_sets(filepaths,
     try:
         log.info("Determining what grids the data fits in...")
         grid_jobs = create_grid_jobs(sat, instrument, nav_uid, band_info,
-                                     backend_object, Cartographer(), # TODO, this is a stopgap, ultimately will need a proper Cartographer object to reuse
+                                     backend_object, cartographer,
                                      fbf_lat=flatbinaryfilename_lat,
                                      fbf_lon=flatbinaryfilename_lon,
                                      forced_grids=forced_grid,
@@ -131,15 +126,17 @@ def process_data_sets(filepaths,
         status_to_return |= STATUS_GDETER_FAIL
         return status_to_return
     
-    
     ### Remap the data
     try:
-        remapped_jobs = remap_bands(sat, instrument, nav_uid,
-                flatbinaryfilename_lon, flatbinaryfilename_lat, grid_jobs,
-                num_procs=num_procs, fornav_d=fornav_d, fornav_D=fornav_D,
-                lat_fill_value=lat_fill,
-                lon_fill_value=lon_fill,
-                )
+        remapped_jobs = remap.remap_bands(sat, instrument, nav_uid,
+                                          flatbinaryfilename_lon,
+                                          flatbinaryfilename_lat, grid_jobs,
+                                          num_procs=num_procs,
+                                          fornav_d=fornav_d, fornav_D=fornav_D,
+                                          lat_fill_value=lat_fill,
+                                          lon_fill_value=lon_fill,
+                                          do_single_sample=fornav_m,
+                                          )
     except StandardError:
         log.debug("Remapping Error:", exc_info=1)
         log.error("Remapping data failed")
@@ -195,8 +192,8 @@ def process_data_sets(filepaths,
     return status_to_return
 
 def _process_data_sets(*args, **kwargs):
-    """Wrapper function around `process_data_sets` so that it can called
-    properly from `run_geocat2awips`, where the exitcode is the actual
+    """Wrapper function around `process_data_sets` so that it can be
+    called properly from `run_glue`, where the exitcode is the actual
     returned value from `process_data_sets`.
 
     This function also checks for exceptions other than the ones already
@@ -220,11 +217,10 @@ def _process_data_sets(*args, **kwargs):
     
     sys.exit(-1)
 
-def run_geocat2awips(filepaths,
-                     multiprocess=True,
-                     **kwargs):
-    """Go through the motions of converting
-    a Geocat hdf file into a AWIPS NetCDF file.
+def run_glue(filepaths,
+             multiprocess=True,
+             **kwargs):
+    """Convert a Geocat hdf file into a AWIPS NetCDF file.
     
     1.  geocat_guidebook.py       : Info on what's in the files
     2.  geocat_to_swath.py        : Code to load the data
@@ -294,89 +290,149 @@ def main():
     # Logging related
     parser.add_argument('-v', '--verbose', dest='verbosity', action="count", default=0,
             help='each occurrence increases verbosity 1 level through ERROR-WARNING-INFO-DEBUG (default INFO)')
+    parser.add_argument('-l', '--log', dest="log_fn", default=None,
+            help="""specify the log filename, default
+<gluescript>_%%Y%%m%%d_%%H%%M%%S. Date information is provided from data filename
+through strftime. Current time if no files.""")
+    parser.add_argument('--debug', dest="debug_mode", default=False,
+            action='store_true',
+            help="Enter debug mode. Keeping intermediate files.")
     
-    # Multiprocessing related
+    # general behavior
+    #parser.add_argument('-h', '--help', dest='help', default=False, action='store_true',
+    #        help="Print help describing how to use this command line tool")
+    
+    # Remapping and grid related
+    parser.add_argument('--fornav-D', dest='fornav_D', default=10,
+            help="Specify the -D option for fornav")
+    parser.add_argument('--fornav-d', dest='fornav_d', default=1,
+            help="Specify the -d option for fornav")
+    parser.add_argument('--fornav-m', dest='fornav_m', default=False, action='store_true',
+            help="Specify the -m option for fornav")
+    parser.add_argument('--grid-configs', dest='grid_configs', nargs="+", default=tuple(),
+            help="Specify additional grid configuration files ('grids.conf' for built-ins)")
+    parser.add_argument('-g', '--grids', dest='forced_grids', nargs="+", default=["all"],
+            help="Force remapping to only some grids, defaults to 'all', use 'all' for determination")
+    parser.add_argument('--gpd', dest='forced_gpd', default=None,
+            help="Specify a different gpd file to use")
+    
+    # multiprocess related
     parser.add_argument('--sp', dest='single_process', default=False, action='store_true',
             help="Processing is sequential instead of one process per navigation group")
     parser.add_argument('--num-procs', dest="num_procs", default=1,
             help="Specify number of processes that can be used to run ll2cr/fornav calls in parallel")
     
-    # Input related
-    parser.add_argument('-f', dest='get_files', default=False, action="store_true",
-            help="Specify that hdf files are listed, not a directory")
-    parser.add_argument('data_files', nargs="+",
-            help="Data directory where satellite data is stored or list of data filenames if '-f' is specified")
-    
-    # Remapping and grid related
-    parser.add_argument('-D', dest='fornav_D', default=5,
-            help="Specify the -D option for fornav")
-    parser.add_argument('-d', dest='fornav_d', default=1,
-            help="Specify the -d option for fornav")
-    parser.add_argument('-g', '--grids', dest='forced_grids', nargs="+", default="all",
-            help="Force remapping to only some grids, defaults to 'all', use 'all' for determination")
-    parser.add_argument('--gpd', dest='forced_gpd', default=None,
-            help="Specify a different gpd file to use")
-    
-    # Backend related
-    parser.add_argument('--rescale-config', dest='rescale_config', default=None,
-            help="specify alternate rescale configuration file")
+    # Backend Specific
+    parser.add_argument('--nc', dest='forced_nc', default=None,
+            help="Specify a different ncml file to use")
     parser.add_argument('--backend-config', dest='backend_config', default=None,
             help="specify alternate backend configuration file")
+    parser.add_argument('--rescale-config', dest='rescale_config', default=None,
+            help="specify alternate rescale configuration file")
     
-    # Output file related
-    parser.add_argument('-k', '--keep', dest='remove_prev', default=True, action='store_true',
-            help="Don't delete any files that were previously made (WARNING: processing may not run successfully)")
-    parser.add_argument('--nc', dest='forced_nc', default=None,
-            help="Specify a different nc file to use")
+    # Input related
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-f', dest='data_files', nargs="+",
+            help="List of one or more hdf files")
+    group.add_argument('-d', dest='data_dir', nargs="?",
+            help="Data directory to look for input data files")
+    group.add_argument('-R', dest='remove_prev', default=False, action='store_true',
+            help="Delete any files that may conflict with future processing. Processing is not done with this flag.")
     
     args = parser.parse_args()
-
+    
+    # if they asked for help, print that and stop now
+    #if args.help :
+    #    parser.print_help()
+    #    sys.exit(0)
+    
+    # Figure out what the log should be named
+    log_fn = args.log_fn
+    if args.remove_prev:
+        # They didn't need to specify a filename
+        if log_fn is None :
+            log_fn = GLUE_NAME + "_removal.log"
+        file_start_time = utc_now()
+    else:
+        # Get input files and the first filename for the logging datetime
+        if args.data_files:
+            hdf_files = args.data_files[:]
+        elif args.data_dir:
+            base_dir = os.path.abspath(os.path.expanduser(args.data_dir))
+            hdf_files = [ os.path.join(base_dir,x) for x in os.listdir(base_dir) ]
+        else:
+            # Should never get here because argparse mexc group
+            log.error("Wrong number of arguments")
+            parser.print_help()
+            return -1
+    
+        # Handle the user using a '~' for their home directory
+        hdf_files = [ os.path.realpath(os.path.expanduser(x)) for x in sorted(hdf_files) ]
+        for hdf_file in hdf_files:
+            if not os.path.exists(hdf_file):
+                print "ERROR: File '%s' doesn't exist" % (hdf_file,)
+                return -1
+        
+        # Get the date of the first file if provided
+        file_start_time = sorted(Geo_Frontend.parse_datetimes_from_filepaths(hdf_files))[0]
+    
+    # Determine the log filename
+    if log_fn is None :
+        log_fn = GLUE_NAME + "_%Y%m%d_%H%M%S.log"
+    log_fn = datetime.strftime(file_start_time, log_fn)
+    
     levels = [logging.ERROR, logging.WARN, logging.INFO, logging.DEBUG]
-    setup_logging(log_filename=LOG_FN, console_level=levels[min(3, args.verbosity)])
+    setup_logging(log_filename=log_fn, console_level=levels[min(3, args.verbosity)])
     
     # Don't set this up until after you have setup logging
-    sys.excepthook = exc_handler
+    sys.excepthook = create_exc_handler(GLUE_NAME)
+    
+    # Remove previous intermediate and product files
+    if args.remove_prev:
+        log.info("Removing any possible conflicting files")
+        remove_file_patterns(
+                Geo_Frontend.removable_file_patterns,
+                remap.removable_file_patterns,
+                Backend.removable_file_patterns
+                )
+        return 0
     
     fornav_D = int(args.fornav_D)
     fornav_d = int(args.fornav_d)
+    fornav_m = args.fornav_m
     num_procs = int(args.num_procs)
     forced_grids = args.forced_grids
-    if forced_grids == 'all': forced_grids = None
-    if args.forced_gpd is not None and not os.path.exists(args.forced_gpd):
-        log.error("Specified gpd file does not exist '%s'" % args.forced_gpd)
-        return -1
-    if args.forced_nc is not None and not os.path.exists(args.forced_nc):
-        log.error("Specified nc file does not exist '%s'" % args.forced_nc)
-        return -1
+    # Assumes 'all' doesn't appear in the list twice
+    if 'all' in forced_grids :
+        forced_grids[forced_grids.index('all')] = None
+    if args.forced_gpd is not None:
+        args.forced_gpd = os.path.realpath(os.path.expanduser(args.forced_gpd))
+        if not os.path.exists(args.forced_gpd):
+            log.error("Specified gpd file does not exist '%s'" % args.forced_gpd)
+            return -1
+    if args.forced_nc is not None:
+        args.forced_nc = os.path.realpath(os.path.expanduser(args.forced_nc))
+        if not os.path.exists(args.forced_nc):
+            log.error("Specified nc file does not exist '%s'" % args.forced_nc)
+            return -1
     
-    if "help" in args.data_files:
-        parser.print_help()
-        sys.exit(0)
-    elif "remove" in args.data_files:
-        log.debug("Removing previous products")
-        clean_up_files()
-        sys.exit(0)
+    stat = run_glue(hdf_files,
+                    fornav_D=fornav_D, fornav_d=fornav_d, fornav_m=fornav_m,
+                    grid_configs=args.grid_configs, #
+                    forced_grid=forced_grids, forced_gpd=args.forced_gpd, forced_nc=args.forced_nc,
+                    #create_pseudo=args.create_pseudo, # geocat2awips doesn't make pseudo bands
+                    multiprocess=not args.single_process, num_procs=num_procs,
+                    rescale_config=args.rescale_config, backend_config=args.backend_config
+                    )
+    log.debug("Processing returned status code: %d" % stat)
     
-    if args.get_files:
-        hdf_files = args.data_files[:]
-    elif len(args.data_files) == 1:
-        base_dir = os.path.abspath(os.path.expanduser(args[0]))
-        hdf_files = [ os.path.join(base_dir,x) for x in os.listdir(base_dir) if x.endswith(".hdf") ]
-    else:
-        log.error("Wrong number of arguments")
-        parser.print_help()
-        return -1
-    
-    if args.remove_prev:
-        log.debug("Removing any previous files")
-        clean_up_files()
-    
-    stat = run_geocat2awips(hdf_files, fornav_D=fornav_D, fornav_d=fornav_d,
-                forced_gpd=args.forced_gpd, forced_nc=args.forced_nc,
-                forced_grid=forced_grids,
-                rescale_config=args.rescale_config,
-                backend_config=args.backend_config,
-                multiprocess=not args.single_process, num_procs=num_procs)
+    # Remove intermediate files (not the backend)
+    if not stat and not args.debug_mode:
+        log.info("Removing intermediate products")
+        remove_file_patterns(
+                Geo_Frontend.removable_file_patterns,
+                remap.removable_file_patterns
+                )
     
     return stat
 
