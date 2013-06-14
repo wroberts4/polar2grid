@@ -42,7 +42,7 @@ Documentation: http://www.ssec.wisc.edu/software/polar2grid/
 """
 __docformat__ = "restructuredtext en"
 
-from polar2grid.core.constants import GRID_KIND_PROJ4,GRID_KIND_GPD,DEFAULT_FILL_VALUE
+from polar2grid.core.constants import GRID_KIND_PROJ4, GRID_KIND_GPD, DEFAULT_FILL_VALUE, DKIND_CATEGORY
 from polar2grid.core.fbf import check_stem
 from . import ll2cr as gator # gridinator
 from . import ms2gt
@@ -280,7 +280,7 @@ def run_fornav(sat, instrument, nav_set_uid, grid_jobs, ll2cr_output,
                             grid_fill_1=fornav_job["grid_fill_1"],
                             weight_delta_max=fornav_D,
                             weight_distance_max=fornav_d,
-                            select_single_samples=do_single_sample,
+                            select_single_samples=do_single_sample or remap_data_as is DKIND_CATEGORY,
                             # We only specify start_scan for the 'image'/channel
                             # data because ll2cr is not 'forced' so it only writes
                             # useful data to the output cols/rows files

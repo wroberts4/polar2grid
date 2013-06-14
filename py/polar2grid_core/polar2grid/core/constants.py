@@ -72,8 +72,9 @@ SAT_METEO9 = "meteosat9"
 SAT_MTSAT2 = "mtsat2"
 
 # Instruments
-INST_VIIRS = "viirs"
-INST_MODIS = "modis"
+INST_VIIRS   = "viirs"
+INST_MODIS   = "modis"
+INST_GIMAGER = "goes_imager"
 
 # Band Kinds
 BKIND_I     = "i"

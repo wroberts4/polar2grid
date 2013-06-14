@@ -62,12 +62,19 @@ SO2_MASK_VAR_PATTERN         = r'.*?_so2_mask'
 
 # this is true for the 1km data, FUTURE: when we get to other kinds, this will need to be more sophisicated
 MODIS_ROWS_PER_SCAN          = 10
+#AVHRR_ROWS_PER_SCAN          = 1 # TODO William confirmed that this is 1, but fornav won't accept less than 2 (TODO, is this line needed at all?)
+MTSAT_ROWS_PER_SCAN          = 2 # confirmed by William
+SEVIRI_ROWS_PER_SCAN         = 2 # confirmed by William
+GOES_ROWS_PER_SCAN           = 2 # confirmed by William
 # TODO, need additional values for other cases: this should cover Aqua and Terra, but we also expect Goes-12, Goes-15, SNPP (VIIRS), Meteosat-9 (SEVIRI), and MTSAT-2
 
 # more general rows per scan dictionary
 ROWS_PER_SCAN = {
-                 (SAT_AQUA,  INST_MODIS) :      MODIS_ROWS_PER_SCAN,
-                 (SAT_TERRA, INST_MODIS) :      MODIS_ROWS_PER_SCAN,
+                 (SAT_AQUA,   INST_MODIS)   :      MODIS_ROWS_PER_SCAN,
+                 (SAT_TERRA,  INST_MODIS)   :      MODIS_ROWS_PER_SCAN,
+                 (SAT_GOES13, INST_GIMAGER) :      GOES_ROWS_PER_SCAN,
+                 (SAT_GOES15, INST_GIMAGER) :      GOES_ROWS_PER_SCAN,
+                 # TODO, add the other satellites that we'll need to know this information for
                  }
 
 # a regular expression that will match geocat files
@@ -215,11 +222,11 @@ def get_satellite_from_filename (data_file_name_string) :
         satellite_to_return  = SAT_TERRA
         instrument_to_return = INST_MODIS
     elif data_file_name_string.find("GOES-13") >= 0 :
-        satellite_to_return = SAT_GOES13
-        # TODO, what instrument name to use here?
+        satellite_to_return  = SAT_GOES13
+        instrument_to_return = INST_GIMAGER
     elif data_file_name_string.find("GOES-15") >= 0 :
-        satellite_to_return = SAT_GOES15
-        # TODO, what instrument name to use here?
+        satellite_to_return  = SAT_GOES15
+        instrument_to_return = INST_GIMAGER
     elif data_file_name_string.find("SNPP") >= 0 :
         satellite_to_return  = SAT_NPP
         instrument_to_return = INST_VIIRS
