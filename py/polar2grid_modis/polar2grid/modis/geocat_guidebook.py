@@ -41,7 +41,7 @@ DEFAULT_ADD_OFFSET_NAME      = 'add_offset'
 DEFAULT_SCALE_FACTOR_NAME    = 'scale_factor'
 DEFAULT_SCALE_METHOD_NAME    = 'scaling_method'
 
-# TODO, these patterns are guesses, need to get confirmation from Corey or Justin
+# FUTURE, these patterns may need to be more flexible depending on future input
 # fog variable patterns
 IFR_FOG_PROB_VAR_PATTERN     = r'.*?_IFR_fog_probability'
 LIFR_FOG_PROB_VAR_PATTERN    = r'.*?_LIFR_fog_probability'
@@ -53,36 +53,44 @@ CLOUD_PHASE_VAR_PATTERN      = r'.*?_cloud_phase'
 ASH_HEIGHT_VAR_PATTERN       = r'.*?_ash_top_height'
 ASH_MASS_LOADING_VAR_PATTERN = r'.*?_ash_mass_loading'
 ASH_EFF_RADIUS_VAR_PATTERN   = r'.*?_ash_effective_radius'
-ASH_BTD_11_12_UM_VAR_PATTERN = r'btd1112' # TODO, will this pattern work?
-ASH_11_UM_VAR_PATTERN        = r'channel_14_brightness_temperature' # TODO, will this pattern work?
-ASH_VISIBLE_VAR_PATTERN      = r'channel_2_reflectance' # TODO, will this pattern work?
+ASH_BTD_11_12_UM_VAR_PATTERN = r'btd1112'
+ASH_11_UM_VAR_PATTERN        = r'channel_14_brightness_temperature'
+ASH_VISIBLE_VAR_PATTERN      = r'channel_2_reflectance'
 # so2 variable patterns
 SO2_LOADING_VAR_PATTERN      = r'.*?_So2_Loading'
 SO2_MASK_VAR_PATTERN         = r'.*?_so2_mask'
 
 # this is true for the 1km data, FUTURE: when we get to other kinds, this will need to be more sophisicated
 MODIS_ROWS_PER_SCAN          = 10
-#AVHRR_ROWS_PER_SCAN          = 1 # TODO William confirmed that this is 1, but fornav won't accept less than 2 (TODO, is this line needed at all?)
+#AVHRR_ROWS_PER_SCAN          = 1 # FUTURE William confirmed that this is 1, but fornav won't accept less than 2 (so if avhrr input is ever needed, this will need to be reconsidered)
 MTSAT_ROWS_PER_SCAN          = 2 # confirmed by William
 SEVIRI_ROWS_PER_SCAN         = 2 # confirmed by William
 GOES_ROWS_PER_SCAN           = 2 # confirmed by William
-# TODO, need additional values for other cases: this should cover Aqua and Terra, but we also expect Goes-12, Goes-15, SNPP (VIIRS), Meteosat-9 (SEVIRI), and MTSAT-2
+# FUTURE, do we need additional values for other cases? this should cover Aqua and Terra, but we also expect Goes-12, Goes-15, SNPP (VIIRS), Meteosat-9 (SEVIRI), and MTSAT-2
 
 # more general rows per scan dictionary
 ROWS_PER_SCAN = {
                  (SAT_AQUA,   INST_MODIS)   :      MODIS_ROWS_PER_SCAN,
                  (SAT_TERRA,  INST_MODIS)   :      MODIS_ROWS_PER_SCAN,
                  (SAT_GOES13, INST_GIMAGER) :      GOES_ROWS_PER_SCAN,
+                 (SAT_GOES14, INST_GIMAGER) :      GOES_ROWS_PER_SCAN,
                  (SAT_GOES15, INST_GIMAGER) :      GOES_ROWS_PER_SCAN,
-                 # TODO, add the other satellites that we'll need to know this information for
+                 # FUTURE, add the other satellites that we need to know this information for
                  }
 
-# a regular expression that will match geocat files
-GEOCAT_FILE_PATTERN            = r'geocatL2\..*?\.\d\d\d\d\d\d\d\.\d\d\d\d\d\d\.hdf'
+# a regular expression that will match geocat files that are in the general geo_nav group
+#GEOCAT_FILE_PATTERN            = r'geocatL2\..*?\.\d\d\d\d\d\d\d\.\d\d\d\d\d\d\.hdf'
+GEOCAT_FILE_PATTERN            = r'geocatL2\..*?-(?!(Alaska|CONUS)).*?\.\d\d\d\d\d\d\d\.\d\d\d\d\d\d\.hdf'
+# a regular expression that will match Alaska specific files
+ALASKA_FILE_PATTERN            = r'geocatL2\..*?(Alaska).*?\.\d\d\d\d\d\d\d\.\d\d\d\d\d\d\.hdf'
+# a regular expression that will match CONUS specific files
+CONUS_FILE_PATTERN             = r'geocatL2\..*?(CONUS).*?\.\d\d\d\d\d\d\d\.\d\d\d\d\d\d\.hdf'
 
 # not sure if this will work this way in the long run
 GEO_FILE_GROUPING = {
                       GEO_NAV_UID:      [GEOCAT_FILE_PATTERN],
+                      AK_NAV_UID:       [ALASKA_FILE_PATTERN],
+                      CONUS_NAV_UID:    [CONUS_FILE_PATTERN],
                     }
 
 # a mapping between regular expressions to match files and their band_kind and band_id contents
@@ -102,6 +110,44 @@ FILE_CONTENTS_GUIDE = {
                                                                     BKIND_ASH11: [NOT_APPLICABLE], # has no attrs
                                                                     BKIND_ASHV:  [NOT_APPLICABLE], # has no attrs
                                                                     
+                                                                    BKIND_SO2L:  [NOT_APPLICABLE], # not present in current test files
+                                                                    BKIND_SO2M:  [NOT_APPLICABLE], # not present in current test files
+                                                                   },
+
+                        ALASKA_FILE_PATTERN:                      {
+                                                                    BKIND_IFR:   [BID_FOG],
+                                                                    BKIND_LIFR:  [BID_FOG],
+                                                                    BKIND_MVFR:  [BID_FOG],
+
+                                                                    BKIND_CLDT:  [NOT_APPLICABLE],
+                                                                    BKIND_CLDP:  [NOT_APPLICABLE],
+
+                                                                    BKIND_ASHH:  [NOT_APPLICABLE],
+                                                                    BKIND_ASHM:  [NOT_APPLICABLE],
+                                                                    BKIND_ASHE:  [NOT_APPLICABLE],
+                                                                    BKIND_ASHB:  [NOT_APPLICABLE], # has no attrs
+                                                                    BKIND_ASH11: [NOT_APPLICABLE], # has no attrs
+                                                                    BKIND_ASHV:  [NOT_APPLICABLE], # has no attrs
+
+                                                                    BKIND_SO2L:  [NOT_APPLICABLE], # not present in current test files
+                                                                    BKIND_SO2M:  [NOT_APPLICABLE], # not present in current test files
+                                                                   },
+
+                        CONUS_FILE_PATTERN:                       {
+                                                                    BKIND_IFR:   [BID_FOG],
+                                                                    BKIND_LIFR:  [BID_FOG],
+                                                                    BKIND_MVFR:  [BID_FOG],
+
+                                                                    BKIND_CLDT:  [NOT_APPLICABLE],
+                                                                    BKIND_CLDP:  [NOT_APPLICABLE],
+
+                                                                    BKIND_ASHH:  [NOT_APPLICABLE],
+                                                                    BKIND_ASHM:  [NOT_APPLICABLE],
+                                                                    BKIND_ASHE:  [NOT_APPLICABLE],
+                                                                    BKIND_ASHB:  [NOT_APPLICABLE], # has no attrs
+                                                                    BKIND_ASH11: [NOT_APPLICABLE], # has no attrs
+                                                                    BKIND_ASHV:  [NOT_APPLICABLE], # has no attrs
+
                                                                     BKIND_SO2L:  [NOT_APPLICABLE], # not present in current test files
                                                                     BKIND_SO2M:  [NOT_APPLICABLE], # not present in current test files
                                                                    },
@@ -190,6 +236,26 @@ RESCALING_ATTRS = \
                 (BKIND_SO2M,  NOT_APPLICABLE):    (DEFAULT_SCALE_FACTOR_NAME, DEFAULT_ADD_OFFSET_NAME, DEFAULT_SCALE_METHOD_NAME),
                }
 
+def find_nav_uid_from_filename (file_name) :
+    """
+    Given the file name, figure out which navigation group it goes in and return the
+    appropriate nav_uid.
+
+    :param file_name:
+    :return:
+    """
+
+    matched_uid = None
+    for nav_uid in GEO_FILE_GROUPING.keys() :
+        for file_pattern in GEO_FILE_GROUPING[nav_uid] :
+            if re.match(file_pattern, file_name) is not None :
+                matched_uid = nav_uid
+
+    if matched_uid is None :
+        LOG.warn("Unable to match file " + file_name + " to a navigation group.")
+
+    return matched_uid
+
 def parse_datetime_from_filename (file_name_string) :
     """parse the given file_name_string and create an appropriate datetime object
     that represents the datetime indicated by the file name; if the file name does
@@ -223,6 +289,9 @@ def get_satellite_from_filename (data_file_name_string) :
         instrument_to_return = INST_MODIS
     elif data_file_name_string.find("GOES-13") >= 0 :
         satellite_to_return  = SAT_GOES13
+        instrument_to_return = INST_GIMAGER
+    elif data_file_name_string.find("GOES-14") >= 0 :
+        satellite_to_return  = SAT_GOES14
         instrument_to_return = INST_GIMAGER
     elif data_file_name_string.find("GOES-15") >= 0 :
         satellite_to_return  = SAT_GOES15

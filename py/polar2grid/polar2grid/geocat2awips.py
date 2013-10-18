@@ -18,7 +18,7 @@ from polar2grid.core.constants  import *
 from polar2grid.core.glue_utils import *
 from polar2grid.core.time_utils import utc_now
 from .grids.grids               import create_grid_jobs, Cartographer
-from polar2grid.modis           import FILE_CONTENTS_GUIDE
+from polar2grid.modis           import FILE_CONTENTS_GUIDE, find_nav_uid_from_filename
 from polar2grid.modis           import Geo_Frontend
 from .awips                     import Backend
 import remap
@@ -253,17 +253,18 @@ def run_glue(filepaths,
     for filepath in all_used:
         log.debug("Processing file %s" % filepath)
         filename = os.path.split(filepath)[1]
+        nav_uid  = find_nav_uid_from_filename(filename)
         
         try:
             if multiprocess:
                 temp_processes = Process(target=_process_data_sets,
-                                         args = ([filepath], "geo_nav"), # TODO, this is the wrong way to match file and nav_uid
+                                         args = ([filepath], nav_uid),
                                          kwargs = kwargs
                                          )
                 temp_processes.start()
                 processes_to_wait_for.append(temp_processes)
             else:
-                stat = _process_data_sets([filepath], "geo_nav", **kwargs) # TODO, this is the wrong way to match file and nav_uid
+                stat = _process_data_sets([filepath], nav_uid, **kwargs)
                 exit_status = exit_status or stat
         except StandardError:
             log.error("Could not process file %s" % filepath, exc_info=True)

@@ -67,6 +67,7 @@ SAT_NPP    = "npp"
 SAT_TERRA  = "terra"
 SAT_AQUA   = "aqua"
 SAT_GOES13 = "goes13"
+SAT_GOES14 = "goes14"
 SAT_GOES15 = "goes15"
 SAT_METEO9 = "meteosat9"
 SAT_MTSAT2 = "mtsat2"
@@ -180,6 +181,8 @@ GEO_NAV_UID        = "geo_nav"      # the geo navigation group
 GEO_250M_NAV_UID   = "geo_250m_nav" # the 250m navigation group
 MOD06_NAV_UID      = "mod06_nav"    # the mod06 navigation group
 MOD07_NAV_UID      = "mod07_nav"    # the mod07 navigation group
+AK_NAV_UID         = "ak_nav"       # the Alaska navigation group
+CONUS_NAV_UID      = "conus_nav"    # the CONUS navigation group
 
 # Grid Constants
 GRIDS_ANY         = "any_grid"
