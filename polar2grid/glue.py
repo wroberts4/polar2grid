@@ -143,6 +143,7 @@ def add_resample_argument_groups(parser):
 def main(argv=sys.argv[1:]):
     global LOG
     from satpy import Scene
+    from satpy.readers import group_files
     from satpy.resample import get_area_def
     from satpy.writers import compute_writer_results
     from dask.diagnostics import ProgressBar
@@ -246,11 +247,20 @@ basic processing with limited products:
         dask.config.set(pool=ThreadPool(args.num_workers))
 
     # Parse provided files and search for files if provided directories
-    scene_args['filenames'] = get_input_files(scene_args['filenames'])
+    reader = scene_args.pop('reader')
+    filenames = get_input_files(scene_args.pop('filenames'))
     # Create a Scene, analyze the provided files
     LOG.info("Sorting and reading input files...")
     try:
-        scn = Scene(**scene_args)
+        file_groups = group_files(filenames, reader=reader, reader_kwargs=scene_args)
+        if len(file_groups) > 1:
+            LOG.error("Multiple file groups (time steps, regions, orbits, etc) were provided "
+                      "but are not supported.")
+            return -1
+        elif not file_groups:
+            raise ValueError("No supported files found")
+
+        scn = Scene(filenames=file_groups[0], **scene_args)
     except ValueError as e:
         LOG.error("{} | Enable debug message (-vvv) or see log file for details.".format(str(e)))
         LOG.debug("Further error information: ", exc_info=True)
@@ -271,7 +281,7 @@ basic processing with limited products:
     # Load the actual data arrays and metadata (lazy loaded as dask arrays)
     if load_args['products'] is None:
         try:
-            reader_mod = importlib.import_module('polar2grid.readers.' + scene_args['reader'])
+            reader_mod = importlib.import_module('polar2grid.readers.' + reader)
             load_args['products'] = reader_mod.DEFAULT_PRODUCTS
             LOG.info("Using default product list: {}".format(load_args['products']))
         except (ImportError, AttributeError):
