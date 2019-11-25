@@ -113,7 +113,7 @@ chmod u+x wmsupload.sh || oops "Couldn't make wmsupload.sh executable"
 # Inject environment code into swbundle only.
 for file in `echo *.sh`; do
     cp "$file" ./tmp
-    sed "s/# __SWBUNDLE_ENVIRONMENT_INJECTION__/source \$POLAR2GRID_HOME\/bin\/env.sh\/g" ./tmp > "$file"
+    sed "s/# __SWBUNDLE_ENVIRONMENT_INJECTION__/source \$POLAR2GRID_HOME\/bin\/env.sh/g" ./tmp > "$file"
 done
 rm ./tmp
 
