@@ -32,8 +32,8 @@ if [ -z "$POLAR2GRID_HOME" ]; then
   export POLAR2GRID_HOME="$( cd -P "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 fi
 
-# Setup necessary environments
-source $POLAR2GRID_HOME/bin/env.sh
+# Setup necessary environments for swbundle.
+# __SWBUNDLE_ENVIRONMENT_INJECTION__
 
 # Set best known defaults for number of OpenMP threads
 export OMP_NUM_THREADS=${OMP_NUM_THREADS:-2}

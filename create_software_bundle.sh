@@ -110,6 +110,13 @@ cd $SB_NAME/bin
 wget http://realearth.ssec.wisc.edu/upload/re_upload -O wmsupload.sh || oops "Couldn't download and create wmsupload.sh script"
 chmod u+x wmsupload.sh || oops "Couldn't make wmsupload.sh executable"
 
+# Inject environment code into swbundle only.
+for file in `echo *.sh`; do
+    cp "$file" ./tmp
+    sed "s/# __SWBUNDLE_ENVIRONMENT_INJECTION__/source \$POLAR2GRID_HOME\/bin\/env.sh\/g" ./tmp > "$file"
+done
+rm ./tmp
+
 # FIXME need libproj?
 
 # Copy SatPy configurations
