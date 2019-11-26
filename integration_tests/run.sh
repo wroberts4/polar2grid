@@ -147,8 +147,8 @@ run_tests()
     (
         # Breaks out of subprocess on error.
         set -e
-        export POLAR2GRID_HOME="$swbundle_name"
         prefix=$1
+        export POLAR2GRID_HOME="$2/bin"
         test_output="${WORKSPACE}/integration_tests/${prefix:0:1}2g_test_output.txt"
         json_file="${WORKSPACE}/integration_tests/json_file.txt"
         cd "${WORKSPACE}/integration_tests"
@@ -211,22 +211,22 @@ exit_status=0
         (
             # Breaks out of subprocess on error.
             set -e
-            #swbundle_name="${WORKSPACE}/${prefix}2grid-swbundle-${suffix}"
+            swbundle_name="${WORKSPACE}/${prefix}2grid-swbundle-${suffix}"
             cd "$WORKSPACE"
-            #conda activate jenkins_p2g_swbundle
-            #"$WORKSPACE"/create_conda_software_bundle.sh "$swbundle_name"
+            conda activate jenkins_p2g_swbundle
+            "$WORKSPACE"/create_conda_software_bundle.sh "$swbundle_name"
 
             package_name="${prefix}2grid-${suffix}"
             mkdir "${WORKSPACE}/$package_name"
             # Copies tarball to package directory.
-            #cp "${swbundle_name}.tar.gz" "${WORKSPACE}/$package_name"
+            cp "${swbundle_name}.tar.gz" "${WORKSPACE}/$package_name"
 
             conda activate jenkins_p2g_docs
             if [[ "$commit_message" =~ (^|.[[:space:]])"["([pg]2g-)?skip-tests"]"$ ]]; then
                 # Replace FAILED with SKIPPED.
                 save_vars "${prefix:0:1}2g_tests=SKIPPED"
             else
-                run_tests ${prefix}
+                run_tests "$prefix" "$swbundle_name"
                 update_exit_status ${exit_status}
                 # Allows block to break if documentation or publishing package fails.
                 set -e
