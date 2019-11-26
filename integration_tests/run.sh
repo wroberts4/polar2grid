@@ -148,7 +148,7 @@ run_tests()
         # Breaks out of subprocess on error.
         set -e
         prefix=$1
-        export POLAR2GRID_HOME="$2/bin"
+        export POLAR2GRID_HOME=""
         test_output="${WORKSPACE}/integration_tests/${prefix:0:1}2g_test_output.txt"
         json_file="${WORKSPACE}/integration_tests/json_file.txt"
         cd "${WORKSPACE}/integration_tests"
@@ -156,11 +156,10 @@ run_tests()
         behave --no-logcapture --no-color --no-capture -D datapath=/data/test_data -i "${prefix}2grid.feature"\
          --format pretty --format json.pretty 2>&1 | tee "$test_output"
 
-        format_test_details "$test_output"
-
         # Replace FAILED with SUCCESSFUL.
         save_vars "${prefix:0:1}2g_tests=SUCCESSFUL"
     )
+    format_test_details "$test_output"
 }
 
 create_documentation()
