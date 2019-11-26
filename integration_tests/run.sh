@@ -114,9 +114,11 @@ format_test_details()
     test_details="${WORKSPACE}/integration_tests/${prefix:0:1}2g_test_details.txt"
     json_file="${WORKSPACE}/integration_tests/json_file.txt"
     # Gets the line before json data starts.
-    i=`grep -n "^\[$" "$test_output" | grep -oE "[0-9]+"`
+    i=`grep -n "^{$" "$test_output" | grep -oE "[0-9]+"`
+    i=$((i - 1))
     # Gets the line after json data ends.
-    j=`grep -n "^\]$" "$test_output" | grep -oE "[0-9]+"`
+    j=`grep -n "^}$" "$test_output" | grep -oE "[0-9]+"`
+    j=$((j + 1))
     # Remove lines that are not json data.
     sed "1,${i}d;${j},\$d" "$test_output" > "$json_file"
     set +x
@@ -142,15 +144,14 @@ EOF
 
 run_tests()
 {
+    test_output="${WORKSPACE}/integration_tests/${prefix:0:1}2g_test_output.txt"
     # Allows tests to fail without causing documentation to fail.
     set +e
     (
         # Breaks out of subprocess on error.
-        set -e
+        set -eo pipefail
         prefix=$1
         export POLAR2GRID_HOME=""
-        test_output="${WORKSPACE}/integration_tests/${prefix:0:1}2g_test_output.txt"
-        json_file="${WORKSPACE}/integration_tests/json_file.txt"
         cd "${WORKSPACE}/integration_tests"
         # Prints output to stdout and to an output file.
         behave --no-logcapture --no-color --no-capture -D datapath=/data/test_data -i "${prefix}2grid.feature"\
@@ -159,7 +160,10 @@ run_tests()
         # Replace FAILED with SUCCESSFUL.
         save_vars "${prefix:0:1}2g_tests=SUCCESSFUL"
     )
-    format_test_details "$test_output"
+    (
+        set -e
+        format_test_details "$test_output"
+    )
 }
 
 create_documentation()
