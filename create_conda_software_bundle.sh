@@ -116,6 +116,13 @@ chmod u+x re_upload || oops "Couldn't make 're_upload' executable"
 mkdir $SB_NAME/etc/satpy || oops "Couldn't create configuration 'etc/satpy' directory"
 cp -r $BASE_P2G_DIR/etc/* $SB_NAME/etc/satpy/ || oops "Couldn't copy configuration 'etc' directory"
 
+# Inject environment code into swbundle only.
+for file in `echo *.sh`; do
+    cp "$file" ./tmp
+    sed "s/# __SWBUNDLE_ENVIRONMENT_INJECTION__/source \$POLAR2GRID_HOME\/bin\/env.sh/g" ./tmp > "$file"
+done
+rm ./tmp
+
 conda init bash
 # Restart the shell to enable conda.
 source ~/.bashrc
@@ -123,13 +130,6 @@ conda deactivate
 # Download pyspectral data
 echo "Downloading pyspectral data..."
 $SB_NAME/bin/download_pyspectral_data.sh || oops "Couldn't download pyspectral data"
-
-# Inject environment code into swbundle only.
-for file in `echo *.sh`; do
-    cp "$file" ./tmp
-    sed "s/# __SWBUNDLE_ENVIRONMENT_INJECTION__/source \$POLAR2GRID_HOME\/bin\/env.sh/g" ./tmp > "$file"
-done
-rm ./tmp
 
 # Add the download_from_internet: False to the config
 echo "download_from_internet: False" >> ${SB_NAME}/etc/pyspectral.yaml
