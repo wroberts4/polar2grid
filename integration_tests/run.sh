@@ -211,15 +211,15 @@ exit_status=0
         (
             # Breaks out of subprocess on error.
             set -e
-            swbundle_name="${WORKSPACE}/${prefix}2grid-swbundle-${suffix}"
+            #swbundle_name="${WORKSPACE}/${prefix}2grid-swbundle-${suffix}"
             cd "$WORKSPACE"
-            conda activate jenkins_p2g_swbundle
-            "$WORKSPACE"/create_conda_software_bundle.sh "$swbundle_name"
+            #conda activate jenkins_p2g_swbundle
+            #"$WORKSPACE"/create_conda_software_bundle.sh "$swbundle_name"
 
             package_name="${prefix}2grid-${suffix}"
             mkdir "${WORKSPACE}/$package_name"
             # Copies tarball to package directory.
-            cp "${swbundle_name}.tar.gz" "${WORKSPACE}/$package_name"
+            #cp "${swbundle_name}.tar.gz" "${WORKSPACE}/$package_name"
 
             conda activate jenkins_p2g_docs
             if [[ "$commit_message" =~ (^|.[[:space:]])"["([pg]2g-)?skip-tests"]"$ ]]; then
