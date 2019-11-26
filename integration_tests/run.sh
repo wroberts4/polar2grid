@@ -149,7 +149,7 @@ run_tests()
         set -e
         export POLAR2GRID_HOME="$swbundle_name"
         prefix=$1
-        test_output="${WORKSPACE}/integration_tests/${prefix:0:1}2g_test_details.txt"
+        test_output="${WORKSPACE}/integration_tests/${prefix:0:1}2g_test_output.txt"
         json_file="${WORKSPACE}/integration_tests/json_file.txt"
         cd "${WORKSPACE}/integration_tests"
         # Prints output to stdout and to an output file.
