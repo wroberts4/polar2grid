@@ -118,10 +118,10 @@ cp -r $BASE_P2G_DIR/etc/* $SB_NAME/etc/satpy/ || oops "Couldn't copy configurati
 
 # Inject environment code into swbundle only.
 for file in `echo *.sh`; do
-    cp "$file" ./tmp
-    sed "s/# __SWBUNDLE_ENVIRONMENT_INJECTION__/source \$POLAR2GRID_HOME\/bin\/env.sh/g" ./tmp > "$file"
+    cp "$file" tmp.sh
+    sed "s/# __SWBUNDLE_ENVIRONMENT_INJECTION__/source \$POLAR2GRID_HOME\/bin\/env.sh/g" tmp.sh > "$file"
 done
-rm ./tmp
+rm tmp.sh
 
 conda init bash
 # Restart the shell to enable conda.
