@@ -225,5 +225,5 @@ setup(
     python_requires='>=3.6',
     extras_require=extras_require,
     entry_points=entry_points,
-    scripts=[fn for fn in glob('swbundle/*.sh') if fn not in ['swbundle/env.sh', 'swbundle/polar2grid_env.sh']]
+    scripts=[fn for fn in glob('swbundle/*.sh') if fn not in ['swbundle/env.sh', 'swbundle/polar2grid_env.sh']] + ['swbundle/crefl', 'swbundle/h5SDS_transfer_rename']
 )
