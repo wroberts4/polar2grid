@@ -124,7 +124,7 @@ format_test_details()
     set +x
     python << EOF > "$test_details"
 import json
-with open("$json_file") as json_file:
+with open("${json_file}") as json_file:
     data = json.load(json_file)
     print()
     for test in data['elements']:
