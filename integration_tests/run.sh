@@ -92,8 +92,10 @@ setup_conda()
     # Restart the shell to enable conda.
     source ~/.bashrc
 
+    conda remove -n jenkins_p2g_swbundle --all
     conda env update -n jenkins_p2g_swbundle -f "$WORKSPACE"/build_environment.yml
     # Documentation environment also has behave, while the build environment does not.
+    conda remove -n jenkins_p2g_docs --all
     conda env update -n jenkins_p2g_docs -f "$WORKSPACE"/build_environment.yml -f "${WORKSPACE}/jenkins_environment.yml"
     conda activate jenkins_p2g_docs
     pip install -U --no-deps "$WORKSPACE"
@@ -148,8 +150,9 @@ run_tests()
     (
         set -eo pipefail
         # Prints output to stdout and to an output file.
-        behave "${WORKSPACE}/integration_tests/features" --no-logcapture --no-color --no-capture -D datapath=/data/test_data -i "${prefix}2grid.feature"\
-         --format pretty --format json.pretty 2>&1 | tee "$test_output"
+        behave "${WORKSPACE}/integration_tests/features" --no-logcapture --no-color\
+         --no-capture -D datapath=/data/test_data -i "${prefix}2grid.feature" --format pretty\
+         --format json.pretty 2>&1 | tee "$test_output"
         # Replace FAILED with SUCCESSFUL.
         save_vars "${prefix:0:1}2g_tests=SUCCESSFUL"
     )
