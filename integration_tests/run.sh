@@ -93,10 +93,11 @@ setup_conda()
     source ~/.bashrc
 
     conda remove -n jenkins_p2g_swbundle --all
-    conda env create -n jenkins_p2g_swbundle -f "$WORKSPACE"/build_environment.yml
+    conda env update -n jenkins_p2g_swbundle -f "${WORKSPACE}/build_environment.yml"
     # Documentation environment also has behave, while the build environment does not.
     conda remove -n jenkins_p2g_docs --all
-    conda env create -n jenkins_p2g_docs -f "${WORKSPACE}"/build_environment.yml -f "${WORKSPACE}/jenkins_environment.yml"
+    conda env update -n jenkins_p2g_docs -f "${WORKSPACE}/build_environment.yml" -f
+    conda env update -n jenkins_p2g_docs -f "${WORKSPACE}/jenkins_environment.yml"
     conda activate jenkins_p2g_docs
     pip install -U --no-deps "$WORKSPACE"
 }
