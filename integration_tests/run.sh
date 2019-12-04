@@ -45,29 +45,28 @@ save_vars()
     rm "$tmp_variables"
 }
 
-setup_vars()
+make_suffix()
 {
-    # Make empty files.
-    touch "${WORKSPACE}/integration_tests/p2g_test_details.txt"
-    touch "${WORKSPACE}/integration_tests/g2g_test_details.txt"
-    commit_message=`git log --format=%B -n 1 "$GIT_COMMIT"`
-    # Handle release vs test naming.
-    suffix=`date "+%Y%m%d-%H%M%S"`
-    # Used in documentation
-    export PATH="/usr/local/texlive/2019/bin/x86_64-linux":$PATH
-
-    # Format string to be YYYY-mm-dd HH:MM:SS.
-    # git_author: https://stackoverflow.com/questions/29876342/how-to-get-only-author-name-or-email-in-git-given-sha1.
-    save_vars "start_time=${suffix:0:4}-${suffix:4:2}-${suffix:6:2} ${suffix:9:2}:${suffix:11:2}:${suffix:13:2}"\
-     "git_author=`git show -s --format="%ae" "$GIT_COMMIT"`" "p2g_package_published=FALSE"\
-     "g2g_package_published=FALSE" "GIT_TAG_NAME=$GIT_TAG_NAME" "commit_message=$commit_message"
-
+    start_time=$1
+    # Handles release vs test naming. Formats string to be YYYYmmdd-HHMMSS.
+    suffix=${start_time:0:4}${start_time:5:2}${start_time:8:2}-${start_time:11:2}${start_time:14:2}${start_time:17:2}
 
     # If the tag is correct and a version was specified, make a version release.
     if [[ "$GIT_TAG_NAME" =~ ^[pg]2g-v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
         # Removes prefix from $GIT_TAG_NAME.
         suffix="${GIT_TAG_NAME:5}"
     fi
+    echo "$suffix"
+}
+
+setup_prefixes()
+{
+    suffix=$1
+    commit_message=`git log --format=%B -n 1 "$GIT_COMMIT"`
+    # Credit: https://stackoverflow.com/questions/29876342/how-to-get-only-author-name-or-email-in-git-given-sha1.
+    git_author=`git show -s --format="%ae" "$GIT_COMMIT"`
+    save_vars "commit_message=$commit_message" "git_author=$git_author" "GIT_TAG_NAME=$GIT_TAG_NAME"\
+     "p2g_package_published=FALSE" "g2g_package_published=FALSE"
 
     if [[ "${GIT_TAG_NAME:0:3}" = "g2g" ]] || [[ "$commit_message" =~ (^|.[[:space:]])"["g2g(-skip-tests)?"]"$ ]]; then
         prefixes=geo
@@ -82,6 +81,7 @@ setup_vars()
         save_vars "p2g_tests=FAILED" "p2g_documentation=FAILED" "p2g_package=polar2grid-${suffix}"\
          "g2g_tests=FAILED" "g2g_documentation=FAILED" "g2g_package=geo2grid-${suffix}"
     fi
+    echo "$prefixes"
 }
 
 setup_conda()
@@ -156,10 +156,10 @@ run_tests()
         # Replace FAILED with SUCCESSFUL.
         save_vars "${prefix:0:1}2g_tests=SUCCESSFUL"
     )
-    [ $? > 0 ] && status=1
+    [[ $? > 0 ]] && status=1
     # Still makes test details even if not all tests pass.
     format_test_details "$prefix" "$test_output"
-    [ $? > 0 ] && status=1
+    [[ $? > 0 ]] && status=1
     # Allows block to break if documentation or publishing package fails.
     set -e
     return ${status}
@@ -169,6 +169,9 @@ create_documentation()
 {
     prefix=$1
     package_name=$2
+    # Used in documentation
+    export PATH="/usr/local/texlive/2019/bin/x86_64-linux":$PATH
+
     # Make docs.
     cd "$WORKSPACE"/doc
     make latexpdf POLAR2GRID_DOC="$prefix"
@@ -199,51 +202,50 @@ publish_package()
 
 set -x
 
+start_time=`date "+%Y-%m-%d %H:%M:%S"`
+save_vars "start_time=$start_time"
+
+suffix=$(make_suffix "$start_time")
+prefixes=$(setup_prefixes)
+setup_conda
+
 # Allows the program to set finish_time while also returning a failing code.
 exit_status=0
-# Makes a subshell so that finish_time can be saved even after a failure.
-(
-    # Breaks out of subshell on error.
-    set -e
-    setup_vars
-    setup_conda
 
-    # Allows a prefix to fail without causing other prefixes to fail.
-    set +e
-    # Make polar2grid and geo2grid separately.
-    for prefix in ${prefixes}; do
-        (
-            # Breaks out of subshell on error.
-            set -e
-            swbundle_name="${WORKSPACE}/${prefix}2grid-swbundle-${suffix}"
-            conda activate jenkins_p2g_swbundle
-            "$WORKSPACE"/create_conda_software_bundle.sh "$swbundle_name"
+# Make polar2grid and geo2grid separately.
+for prefix in ${prefixes}; do
+    swbundle_name="${WORKSPACE}/${prefix}2grid-swbundle-${suffix}"
+    # This is what is sent to bumi:/tmp. It contains the swbundles and documentation.
+    package_name="${prefix}2grid-${suffix}"
+    mkdir "${WORKSPACE}/$package_name"
+    # Shows which tests passed and failed. Needs an empty file if no tests ran.
+    touch "${WORKSPACE}/integration_tests/${prefix:0:1}2g_test_details.txt"
+    conda activate jenkins_p2g_swbundle
+    # Makes a subshell so that finish_time can be saved even after a failure.
+    (
+        # Breaks out of subshell on error.
+        set -e
+        "$WORKSPACE"/create_conda_software_bundle.sh "$swbundle_name"
+        # Copies tarball to package directory.
+        cp "${swbundle_name}.tar.gz" "${WORKSPACE}/$package_name"
 
-            package_name="${prefix}2grid-${suffix}"
-            mkdir "${WORKSPACE}/$package_name"
-            # Copies tarball to package directory.
-            cp "${swbundle_name}.tar.gz" "${WORKSPACE}/$package_name"
-
-            conda activate jenkins_p2g_docs
-            if [[ "$commit_message" =~ (^|.[[:space:]])"["([pg]2g-)?skip-tests"]"$ ]]; then
-                # Replace FAILED with SKIPPED.
-                save_vars "${prefix:0:1}2g_tests=SKIPPED"
-            else
-                run_tests "$prefix" "$swbundle_name"
-                [ $? > 0 ] && exit_status=1
-            fi
-            create_documentation "$prefix" "$package_name"
-            # Only publishes if both tests and documentation passed.
-            if [[ ${exit_status} -eq 0 ]]; then
-                publish_package "$prefix" "$package_name"
-            fi
-            exit ${exit_status}
-        )
-        [ $? > 0 ] && exit_status=1
-    done
-    exit ${exit_status}
-)
-[ $? > 0 ] && exit_status=1
+        conda activate jenkins_p2g_docs
+        if [[ "$commit_message" =~ (^|.[[:space:]])"["([pg]2g-)?skip-tests"]"$ ]]; then
+            # Replace FAILED with SKIPPED.
+            save_vars "${prefix:0:1}2g_tests=SKIPPED"
+        else
+            run_tests "$prefix" "$swbundle_name"
+            [[ $? > 0 ]] && exit_status=1
+        fi
+        create_documentation "$prefix" "$package_name"
+        # Only publishes if both tests and documentation passed.
+        if [[ ${exit_status} -eq 0 ]]; then
+            publish_package "$prefix" "$package_name"
+        fi
+        exit ${exit_status}
+    )
+    [[ $? > 0 ]] && exit_status=1
+done
 
 save_vars "finish_time=`date "+%Y-%m-%d %H:%M:%S"`"
 exit ${exit_status}
