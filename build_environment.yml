@@ -16,6 +16,7 @@ dependencies:
   - gdal
   - h5py
   - netcdf4
+  - numpy
   - pillow
   - pip
   - pycoast

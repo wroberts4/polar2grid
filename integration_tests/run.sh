@@ -201,8 +201,9 @@ set -x
 
 # Allows the program to set finish_time while also returning a failing code.
 exit_status=0
-
+# Makes a subshell so that finish_time can be saved even after a failure.
 (
+    # Breaks out of subshell on error.
     set -e
     suffix=$(setup_vars)
     setup_conda
@@ -212,7 +213,7 @@ exit_status=0
     # Make polar2grid and geo2grid separately.
     for prefix in ${prefixes}; do
         (
-            # Breaks out of subprocess on error.
+            # Breaks out of subshell on error.
             set -e
             swbundle_name="${WORKSPACE}/${prefix}2grid-swbundle-${suffix}"
             conda activate jenkins_p2g_swbundle
