@@ -151,12 +151,11 @@ run_tests()
     # Prints output to stdout and to an output file.
     behave "${WORKSPACE}/integration_tests/features" --no-logcapture --no-color\
      --no-capture -D datapath=/data/test_data -i "${prefix}2grid.feature" --format pretty\
-     --format json.pretty 2>&1 | tee "$test_output"
-    # Makes status 1 if anything failed, else replaces FAILED with SUCCESSFUL if all tests passed.
-    [[ $? > 0 ]] && status=1 || save_vars "${prefix:0:1}2g_tests=SUCCESSFUL"
+     --format json.pretty 2>&1 | tee "$test_output" || status=1
     # Still makes test details even if not all tests pass.
-    format_test_details "$prefix" "$test_output"
-    [[ $? > 0 ]] && status=1
+    format_test_details "$prefix" "$test_output" || status=1
+    # Replaces FAILED with SUCCESSFUL if everything passed.
+    [[ ${status} == 0 ]] && save_vars "${prefix:0:1}2g_tests=SUCCESSFUL"
 
     return ${status}
 }
@@ -182,7 +181,7 @@ create_documentation()
     cd "$WORKSPACE"
     # Copy html to package directory.
     cp -r "$WORKSPACE"/doc/build/html "${WORKSPACE}/$package_name" || status=1
-    # Makes status 1 if anything failed, else replaces FAILED with SUCCESSFUL if documentation was successful.
+    # Replaces FAILED with SUCCESSFUL if everything passed.
     [[ ${status} == 0 ]] && save_vars "${prefix:0:1}2g_documentation=SUCCESSFUL"
 
     return ${status}
@@ -206,7 +205,7 @@ start_time=`date "+%Y-%m-%d %H:%M:%S"`
 save_vars "start_time=$start_time"
 
 suffix=$(make_suffix "$start_time")
-prefixes=$(setup_prefixes)
+prefixes=$(setup_prefixes "$suffix")
 setup_conda
 
 # Allows the program to set finish_time while also returning a failing code.
