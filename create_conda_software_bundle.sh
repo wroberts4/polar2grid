@@ -28,10 +28,6 @@ cached_download() {
     cp $cache_path . || oops "Could not copy cached download ${cache_path}"
 }
 
-conda init bash
-# Restart the shell to enable conda.
-source ~/.bashrc
-
 # This assumes that the current conda environment is already active
 which conda || oops "Conda environment must be available"
 which conda-pack || oops "'conda-pack' must be installed in conda environment"
@@ -127,6 +123,10 @@ for file in `echo *.sh`; do
 done
 rm tmp.sh
 
+#conda init bash
+## Restart the shell to enable conda.
+#source ~/.bashrc
+#conda deactivate
 # Download pyspectral data
 echo "Downloading pyspectral data..."
 $SB_NAME/bin/download_pyspectral_data.sh || oops "Couldn't download pyspectral data"

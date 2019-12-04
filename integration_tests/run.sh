@@ -153,7 +153,7 @@ run_tests()
      --no-capture -D datapath=/data/test_data -i "${prefix}2grid.feature" --format pretty\
      --format json.pretty 2>&1 | tee "$test_output" || status=1
     # Still makes test details even if not all tests pass.
-    format_test_details "$prefix" "$test_output" || status=1
+    format_test_details "$prefix" "$test_output"
     # Replaces FAILED with SUCCESSFUL if everything passed.
     [[ ${status} == 0 ]] && save_vars "${prefix:0:1}2g_tests=SUCCESSFUL"
 
@@ -224,7 +224,7 @@ for prefix in ${prefixes}; do
 
     # Handles swbundle logic.
     conda activate jenkins_p2g_swbundle
-    "$WORKSPACE"/create_conda_software_bundle.sh "$swbundle_name" || package_status=1
+    "${WORKSPACE}/create_conda_software_bundle.sh" "$swbundle_name" || package_status=1
     # Copies tarball to package directory.
     cp "${swbundle_name}.tar.gz" "${WORKSPACE}/$package_name" || package_status=1
 
