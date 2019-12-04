@@ -82,7 +82,6 @@ setup_vars()
         save_vars "p2g_tests=FAILED" "p2g_documentation=FAILED" "p2g_package=polar2grid-${suffix}"\
          "g2g_tests=FAILED" "g2g_documentation=FAILED" "g2g_package=geo2grid-${suffix}"
     fi
-    echo "$suffix"
 }
 
 setup_conda()
@@ -206,7 +205,7 @@ exit_status=0
 (
     # Breaks out of subshell on error.
     set -e
-    suffix=$(setup_vars)
+    setup_vars
     setup_conda
 
     # Allows a prefix to fail without causing other prefixes to fail.
