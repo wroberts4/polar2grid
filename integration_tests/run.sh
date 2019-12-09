@@ -117,17 +117,17 @@ format_test_details()
     python << EOF > "$test_details"
 import json
 with open("${json_file}") as json_file:
-data = json.load(json_file)
-print()
-for test in data['elements']:
-    name = test['name'].split('@')[1]
-    duration = 0
-    for step in test['steps']:
-        duration += step['result']['duration'] if step.get('result') else 0
-    end = '\n'
-    if test == data['elements'][-1]:
-        end = ''
-    print("\t\t{0}: {1} in {2} seconds".format(name, test['status'], round(duration)), end=end)
+    data = json.load(json_file)
+    print()
+    for test in data['elements']:
+        name = test['name'].split('@')[1]
+        duration = 0
+        for step in test['steps']:
+            duration += step['result']['duration'] if step.get('result') else 0
+        end = '\n'
+        if test == data['elements'][-1]:
+            end = ''
+        print("\t\t{0}: {1} in {2} seconds".format(name, test['status'], round(duration)), end=end)
 EOF
     set -x
     rm "$json_file"
@@ -219,6 +219,7 @@ for prefix in ${prefixes}; do
     touch "${WORKSPACE}/integration_tests/${prefix:0:1}2g_test_details.txt"
     # Makes a sub-shell. Essentially a "try block" that lets the rest of the program run when an error occurs.
     (
+        # Break out of sub-shell on error.
         set -e
         # Handles swbundle logic.
         conda activate jenkins_p2g_swbundle
@@ -235,6 +236,7 @@ for prefix in ${prefixes}; do
             # Only run tests if package was built correctly. Allows documentation to run even if tests fail.
             run_tests "$prefix" "$swbundle_name" || test_status=$?
         fi
+        # If this fails, the sub-shell will terminate
         create_documentation "$prefix" "$package_name"
 
         # Only publishes if both tests and documentation passed.
