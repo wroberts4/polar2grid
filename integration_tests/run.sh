@@ -155,7 +155,7 @@ run_tests()
     # Still makes test details even if not all tests pass.
     format_test_details "$prefix" "$test_output"
     # Replaces FAILED with SUCCESSFUL if everything passed.
-    [[ ${status} == 0 ]] && save_vars "${prefix:0:1}2g_tests=SUCCESSFUL"
+    [[ ${status} -eq 0 ]] && save_vars "${prefix:0:1}2g_tests=SUCCESSFUL"
 
     return ${status}
 }
@@ -182,7 +182,7 @@ create_documentation()
     # Copy html to package directory.
     cp -r "$WORKSPACE"/doc/build/html "${WORKSPACE}/$package_name" || status=1
     # Replaces FAILED with SUCCESSFUL if everything passed.
-    [[ ${status} == 0 ]] && save_vars "${prefix:0:1}2g_documentation=SUCCESSFUL"
+    [[ ${status} -eq 0 ]] && save_vars "${prefix:0:1}2g_documentation=SUCCESSFUL"
 
     return ${status}
 }
@@ -199,7 +199,7 @@ publish_package()
     save_vars "${prefix:0:1}2g_package_published=TRUE"
 }
 
-set -x
+set -ex
 
 start_time=`date "+%Y-%m-%d %H:%M:%S"`
 save_vars "start_time=$start_time"
@@ -234,7 +234,8 @@ for prefix in ${prefixes}; do
         # Replace FAILED with SKIPPED.
         save_vars "${prefix:0:1}2g_tests=SKIPPED"
     else
-        run_tests "$prefix" "$swbundle_name" || package_status=1
+        # Only run tests if package was built correctly.
+        [[ ${package_status} -eq 0 ]] &&  run_tests "$prefix" "$swbundle_name" || package_status=1
     fi
     create_documentation "$prefix" "$package_name" || package_status=1
 
@@ -244,7 +245,7 @@ for prefix in ${prefixes}; do
     fi
 
     # Makes exit_status 1 if package_status is a failing code.
-    [[ ${package_status} > 0 ]] && exit_status=1
+    [[ ${package_status} -gt 0 ]] && exit_status=1
 done
 
 save_vars "finish_time=`date "+%Y-%m-%d %H:%M:%S"`"
