@@ -123,10 +123,10 @@ for file in `echo *.sh`; do
 done
 rm tmp.sh
 
-#conda init bash
-## Restart the shell to enable conda.
-#source ~/.bashrc
-#conda deactivate
+conda init bash
+# Restart the shell to enable conda.
+source ~/.bashrc
+conda deactivate
 # Download pyspectral data
 echo "Downloading pyspectral data..."
 $SB_NAME/bin/download_pyspectral_data.sh || oops "Couldn't download pyspectral data"
