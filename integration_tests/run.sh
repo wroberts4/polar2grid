@@ -146,6 +146,7 @@ run_tests()
     test_output="${WORKSPACE}/integration_tests/${prefix:0:1}2g_test_output.txt"
 
     export POLAR2GRID_HOME="${swbundle_name}"
+    export PATH_TO_SCRIPTS="${swbundle_name}/bin"
 
     # Prints output to stdout and to an output file.
     behave "${WORKSPACE}/integration_tests/features" --no-logcapture --no-color\

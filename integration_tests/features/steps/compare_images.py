@@ -26,7 +26,7 @@ def step_impl(context, source):
 @when('{command} runs')
 def step_impl(context, command):
     context.script = command.split()[0]
-    context.command = "{} {}".format(os.path.join(context.p2g_path, command), context.source)
+    context.command = "{} {}".format(os.path.join(context.path_to_scripts, command), context.source)
 
     # creating new data in temporary directory to compare
     orig_dir = os.getcwd()
@@ -48,10 +48,10 @@ def step_impl(context, output):
     try:
         os.chdir(context.data_path)
         if "gtiff" in context.command or context.script == "geo2grid.sh":
-            compare_command = "{} {} {} {}".format(os.path.join(context.p2g_path, "p2g_compare_geotiff.sh"),
+            compare_command = "{} {} {} {}".format(os.path.join(context.path_to_scripts, "p2g_compare_geotiff.sh"),
                                                    output, context.temp_dir, '-vv')
         else:
-            compare_command = "{} {} {} {}".format(os.path.join(context.p2g_path, "p2g_compare_netcdf.sh"),
+            compare_command = "{} {} {} {}".format(os.path.join(context.path_to_scripts, "p2g_compare_netcdf.sh"),
                                                    output, context.temp_dir, '--variables image -vv')
         exit_status = subprocess.call(compare_command, shell=True)
         assert exit_status == 0, "Files did not match with the correct output"

@@ -6,8 +6,7 @@ def before_all(context):
         context.data_path = context.config.userdata['datapath']
     else:
         context.data_path = os.path.join(os.getcwd(), context.config.userdata['datapath'])
-    p2g_home = os.path.expandvars('$POLAR2GRID_HOME')
-    context.p2g_path = os.path.join(p2g_home, 'bin')
+    context.path_to_scripts = os.path.expandvars('$PATH_TO_SCRIPTS')
 
 
 def after_all(context):
