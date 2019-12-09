@@ -42,6 +42,7 @@ __docformat__ = "restructuredtext en"
 import os
 from setuptools import setup, find_packages, Command
 from distutils.extension import Extension
+from glob import glob
 import numpy
 
 extensions = [
@@ -223,5 +224,6 @@ setup(
         ],
     python_requires='>=3.6',
     extras_require=extras_require,
-    entry_points=entry_points
+    entry_points=entry_points,
+    scripts=[fn for fn in glob('swbundle/*.sh') if fn not in ['swbundle/env.sh', 'swbundle/polar2grid_env.sh']]
 )
