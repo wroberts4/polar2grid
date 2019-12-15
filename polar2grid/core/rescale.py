@@ -431,11 +431,6 @@ def water_temp_palettize(img, min_out, max_out, min_in=0, max_in=1.0, colormap=N
     img[img == 150] = 31
     img[img == 199] = 18
     img[img >= 200] -= 100
-
-    # Convert to an LA image
-    good_data_mask = kwargs['good_data_mask']
-    alpha = numpy.where(good_data_mask, max_out, 0)
-    img = numpy.concatenate((img, alpha), axis=0)
     return img
 
 
