@@ -206,7 +206,7 @@ prefixes=$(setup_prefixes "$suffix")
 setup_conda
 
 # Allows the program to set finish_time while also returning a failing code.
-exit_status=0
+exit_status=1
 
 # Make polar2grid and geo2grid separately.
 for prefix in ${prefixes}; do
