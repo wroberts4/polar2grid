@@ -196,7 +196,7 @@ publish_package()
 set -x
 
 # 0 makes and uses the swbundle for scripts. 1 uses the environment for scripts.
-SWBUNDLE_OR_ENVIRONMENT=0
+SWBUNDLE_OR_ENVIRONMENT=1
 
 start_time=`date "+%Y-%m-%d %H:%M:%S"`
 save_vars "start_time=$start_time"
